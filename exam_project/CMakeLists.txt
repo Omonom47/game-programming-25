@@ -6,17 +6,18 @@ foreach(file_src ${file_src_list})
 
 	target_include_directories(${targetname} PRIVATE ${CMAKE_SOURCE_DIR}/lib/itu)
 	target_include_directories(${targetname} PRIVATE ${CMAKE_SOURCE_DIR}/lib/imgui)
+    target_include_directories(${targetname} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 	target_link_libraries(${targetname} PRIVATE SDL3::SDL3)
 	target_link_libraries(${targetname} PRIVATE SDL3_mixer::SDL3_mixer)
 	target_link_libraries(${targetname} PRIVATE SDL3_ttf::SDL3_ttf)
 	target_link_libraries(${targetname} PRIVATE box2d::box2d)
-	target_link_libraries(${targetname} PRIVATE imgui)
+    target_link_libraries(${targetname} PRIVATE imgui)
 
-  add_custom_command(TARGET ${targetname} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3::SDL3>" "$<TARGET_FILE_DIR:${targetname}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3_mixer::SDL3_mixer>" "$<TARGET_FILE_DIR:${targetname}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3_ttf::SDL3_ttf>" "$<TARGET_FILE_DIR:${targetname}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:box2d::box2d>" "$<TARGET_FILE_DIR:${targetname}>"
-  )
+    add_custom_command(TARGET ${targetname} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3::SDL3>" "$<TARGET_FILE_DIR:${targetname}>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3_mixer::SDL3_mixer>" "$<TARGET_FILE_DIR:${targetname}>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3_ttf::SDL3_ttf>" "$<TARGET_FILE_DIR:${targetname}>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:box2d::box2d>" "$<TARGET_FILE_DIR:${targetname}>"
+    )
 endforeach()

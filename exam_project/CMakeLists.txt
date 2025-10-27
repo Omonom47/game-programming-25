@@ -12,4 +12,11 @@ foreach(file_src ${file_src_list})
 	target_link_libraries(${targetname} PRIVATE SDL3_ttf::SDL3_ttf)
 	target_link_libraries(${targetname} PRIVATE box2d::box2d)
 	target_link_libraries(${targetname} PRIVATE imgui)
+
+  add_custom_command(TARGET ${targetname} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3::SDL3>" "$<TARGET_FILE_DIR:${targetname}>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3_mixer::SDL3_mixer>" "$<TARGET_FILE_DIR:${targetname}>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3_ttf::SDL3_ttf>" "$<TARGET_FILE_DIR:${targetname}>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:box2d::box2d>" "$<TARGET_FILE_DIR:${targetname}>"
+  )
 endforeach()

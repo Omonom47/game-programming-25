@@ -21,7 +21,5 @@ add_subdirectory(lib/imgui)
 include_directories(lib/stb)
 
 # repo's executables
-add_subdirectory(examples)
-add_subdirectory(playground)
-add_subdirectory(exercises)
 add_subdirectory(exercises_solutions)
+add_subdirectory(exam_project)

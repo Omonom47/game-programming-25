@@ -54,7 +54,7 @@ struct ITU_SystemDef
 
 #define entity_get_data(id, T) (T*)itu_entity_data_get((id), ITU_COMPONENT_TYPE_##T)
 
-#define add_system(fn_update, component_mask, tag_mask) itu_sys_estorage_add_system({ #fn_update, fn_update, component_mask, tag_mask })
+#define add_system(fn_update, component_mask, tag_mask, is_render_system) itu_sys_estorage_add_system({ #fn_update, fn_update, component_mask, tag_mask })
 #define entity_add_component(id, T, value) { type_check_struct(T, value); itu_entity_component_add((id), ITU_COMPONENT_TYPE_##T, &value); }
 
 #define component_mask(T) (1ull << ITU_COMPONENT_TYPE_##T)
@@ -73,9 +73,10 @@ register_component(ShapeData)
 
 void itu_sys_estorage_init(int starting_entities_count, bool enable_standard_components);
 void itu_sys_estorage_clear_all_entities();
-void itu_sys_estorage_add_system(ITU_SystemDef system_def);
+void itu_sys_estorage_add_system(ITU_SystemDef system_def, bool is_render_system=false);
 void itu_sys_estorage_set_systems(ITU_SystemDef* systems, int systems_count);
 void itu_sys_estorage_systems_update(SDLContext* context);
+void itu_sys_estorage_render_update(SDLContext* context);
 
 void itu_sys_estorage_tag_set_debug_name(int tag, const char* tag_debug_name);
 void itu_sys_estorage_debug_render(SDLContext* context);

@@ -22,7 +22,7 @@ struct Tilemap
 	int          num_rows;
 	int          num_cols;
 	int          tile_size; // in pixels
-	int*         tile_ids;  // array of arrays [num_rows][num_cols]
+	int*		 tile_ids;  // array of arrays [num_rows][num_cols]
 };
 
 register_component(Tilemap)
@@ -394,11 +394,13 @@ static void game_init(SDLContext* context)
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ASTEROID, "asteroid");
 	
-	add_system(system_tilemap_render				, component_mask(Transform) | component_mask(Tilemap)          , 0);
-	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ASTEROID));
-	add_system(system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData)  , 0);
-	add_system(system_sprite_render_camera      , component_mask(TransformScreen) | component_mask(Sprite)          , 0);
-	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET));
+	add_system(system_tilemap_render				, component_mask(Transform) | component_mask(Tilemap)          , 0, true);
+	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ASTEROID), false);
+	add_system(system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData)  , 0, false);
+	add_system(system_sprite_render_camera      , component_mask(TransformScreen) | component_mask(Sprite)          , 0, true);
+	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
+
+	add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0, true);
 
 }
 
@@ -427,19 +429,10 @@ static void game_reset(SDLContext* context)
 		itu_entity_set_debug_name(id_tilemap, "tilemap");
 
 		Tilemap tilemap; 
-		vector<vector<int>> tilemap_ids = generate_room_matrix_from_file("../exam_project/room_templates/simple_room.txt");
-		tilemap.num_rows = (int)tilemap_ids.size();
-		tilemap.num_cols = (int)tilemap_ids[0].size();
-		tilemap.tile_ids = (int*)malloc(sizeof(int) * tilemap.num_rows * tilemap.num_cols);
-
-		for (int y = 0; y < tilemap.num_rows; ++y)
-		{
-			for (int x = 0; x < tilemap.num_cols; ++x)
-			{
-				tilemap.tile_ids[y * tilemap.num_cols + x] = tilemap_ids[y][x];
-			}
-		}
-
+		Room room = generate_room_matrix_from_file("../exam_project/room_templates/simple_room.txt");
+		tilemap.num_cols = room.num_cols;
+		tilemap.num_rows = room.num_rows;
+		tilemap.tile_ids = room.tiles;
 		tilemap.texture = texture_tiles;
 		tilemap.tile_size = 16;
 
@@ -553,6 +546,10 @@ int main(void)
 
 		// update
 		itu_sys_estorage_systems_update(&context);
+
+		// render
+		itu_sys_estorage_render_update(&context);
+
 #ifdef ENABLE_DIAGNOSTICS
 		{
 			//ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4 { 33/255.0f, 33/255.0f, 33/255.0f, 255/255.0f });

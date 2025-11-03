@@ -1,8 +1,15 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+struct Room 
+{
+    int* tiles;
+    int num_rows;
+    int num_cols;
+};
 
-vector<vector<int>> generate_room_matrix_from_file(string file_path)
+
+Room generate_room_matrix_from_file(string file_path)
 {
     ifstream f(file_path);
 
@@ -37,7 +44,24 @@ vector<vector<int>> generate_room_matrix_from_file(string file_path)
 
     f.close();
 
-    return room;
+    // inverting the room vertically to match the coordinate system
+    reverse(room.begin(), room.end());
+
+    // flatten 2D vector to 1D array
+    int* flattened_room = new int[room.size() * room[0].size()];
+    for (int y = 0; y < room.size(); ++y) {
+        for (int x = 0; x < room[y].size(); ++x) 
+        {
+            flattened_room[y * room[0].size() + x] = room[y][x]; 
+        }
+    }
+
+    Room room_def = {  };
+    room_def.tiles = flattened_room;
+    room_def.num_rows = (int)room.size();
+    room_def.num_cols = (int)room[0].size();
+
+    return room_def;
 }
 
 

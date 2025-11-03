@@ -174,37 +174,6 @@ void lib_sprite_render_camera(SDLContext* context, Sprite* sprite, TransformScre
 	);
 }
 
-void lib_sprite9patch_render_camera(SDLContext* context, Sprite9Patch* sprite, TransformScreen* transform)
-{
-	SDL_FRect rect_src = sprite->rect;
-	SDL_FRect rect_dst;
-
-	rect_dst.w = transform->scale.x * sprite->size.x;
-	rect_dst.h = transform->scale.y * sprite->size.y;
-	rect_dst.x = transform->position.x - sprite->pivot.x * rect_dst.w;
-	rect_dst.y = transform->position.y - sprite->pivot.y * rect_dst.h;
-
-	rect_dst.w = SDL_max(rect_dst.w, sprite->margins_hor.x + sprite->margins_hor.y);
-	rect_dst.h = SDL_max(rect_dst.h, sprite->margins_ver.x + sprite->margins_ver.y);
-
-	SDL_FPoint pivot_dst;
-	pivot_dst.x = sprite->pivot.x * rect_dst.w;
-	pivot_dst.y = sprite->pivot.y * rect_dst.h;
-
-	sdl_set_texture_tint(sprite->texture, sprite->tint);
-	SDL_RenderTexture9Grid(
-		context->renderer,
-		sprite->texture,
-		&rect_src,
-		sprite->margins_hor.x,
-		sprite->margins_hor.y,
-		sprite->margins_ver.x,
-		sprite->margins_ver.y,
-		transform->scale.x,
-		&rect_dst
-	);
-}
-
 void system_sprite_render_camera(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	for(int i = 0; i < entity_ids_count; ++i)
@@ -221,57 +190,6 @@ void system_sprite_render_camera(SDLContext* context, ITU_EntityId* entity_ids, 
 	SDL_RenderRect(context->renderer, NULL);
 }
 
-void system_sprite9patch_render_camera(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
-{
-	for(int i = 0; i < entity_ids_count; ++i)
-	{
-		ITU_EntityId id = entity_ids[i];
-		TransformScreen* transform = entity_get_data(id, TransformScreen);
-		Sprite9Patch*    sprite = entity_get_data(id, Sprite9Patch);
-
-		lib_sprite9patch_render_camera(context, sprite, transform);
-	}
-}
-
-void system_imagebutton(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
-{
-	for(int i = 0; i < entity_ids_count; ++i)
-	{
-		ITU_EntityId id = entity_ids[i];
-		TransformScreen* transform   = entity_get_data(id, TransformScreen);
-		Sprite9Patch*    sprite      = entity_get_data(id, Sprite9Patch);
-		ImageButton*     imagebutton = entity_get_data(id, ImageButton);
-
-		SDL_FRect rect_dst;
-		rect_dst.w = transform->scale.x * sprite->size.x;
-		rect_dst.h = transform->scale.y * sprite->size.y;
-		rect_dst.x = transform->position.x - sprite->pivot.x * rect_dst.w;
-		rect_dst.y = transform->position.y - sprite->pivot.y * rect_dst.h;
-
-		// // TMP debug btn area
-		//sdl_set_render_draw_color(context, COLOR_YELLOW);
-		//SDL_RenderRect(context->renderer, &rect_dst);
-
-		TTF_DrawRendererText(imagebutton->ttf_text, rect_dst.x, rect_dst.y);
-
-		vec2f mouse_camera_pos = point_window_to_screen(context, context->mouse_pos);
-
-		if(SDL_PointInRectFloat((SDL_FPoint*)&mouse_camera_pos, &rect_dst))
-		{
-			sprite->tint = COLOR_BTN_HOVER;
-			if(imagebutton->fn_callback_hover)
-				imagebutton->fn_callback_hover(context, id);
-
-			if(context->btn_isdown[BTN_TYPE_UI_SELECT])
-				sprite->tint = COLOR_BTN_CLICK;
-
-			if(context->btn_isjustpressed[BTN_TYPE_UI_SELECT] && imagebutton->fn_callback_click)
-				imagebutton->fn_callback_click(context, id);
-		}
-		else
-			sprite->tint = COLOR_BTN_DEFAULT;
-	}
-}
 
 // ============================================================================================
 // COMPONENT DEBUG UI RENDER methods

@@ -1,4 +1,4 @@
-#define TEXTURE_PIXELS_PER_UNIT 128 // how many pixels of textures will be mapped to a single world unit
+#define TEXTURE_PIXELS_PER_UNIT 16 // how many pixels of textures will be mapped to a single world unit
 #define CAMERA_PIXELS_PER_UNIT  32  // how many pixels of windows will be used to render a single world unit
 
 #define ENABLE_DIAGNOSTICS

@@ -3,14 +3,14 @@
 #include <itu_unity_include.hpp>
 
 // ui colors
-#define EX6_COLOR_BTN_DEFAULT color { 0.5f, 0.5f, 0.5f, 1.0f }
-#define EX6_COLOR_BTN_HOVER   color { 0.75f, 0.75f, 0.75f, 1.0f }
-#define EX6_COLOR_BTN_CLICK   color { 1.0f, 1.0f, 1.0f, 1.0f }
+#define COLOR_BTN_DEFAULT color { 0.5f, 0.5f, 0.5f, 1.0f }
+#define COLOR_BTN_HOVER   color { 0.75f, 0.75f, 0.75f, 1.0f }
+#define COLOR_BTN_CLICK   color { 1.0f, 1.0f, 1.0f, 1.0f }
 
 float design_speed_linear;
 float design_speed_rotational;
 
-enum EX6_Tags
+enum Tags
 {
 	TAG_CAMERA_TARGET,
 	TAG_ASTEROID
@@ -27,38 +27,38 @@ struct Tilemap
 
 register_component(Tilemap)
 
-struct EX6_PlayerData
+struct PlayerData
 {
 	float curr_speed_linear;
 	float curr_speed_rotational;
 
 	ITU_EntityId target;
 };
-register_component(EX6_PlayerData)
+register_component(PlayerData)
 
-struct EX6_Health
+struct Health
 {
 	float max;
 	float curr;
 };
-register_component(EX6_Health)
+register_component(Health)
 
-struct EX6_HealthRenderer
+struct HealthRenderer
 {
 	float widget_base_w;
 	ITU_EntityId target;
 };
-register_component(EX6_HealthRenderer)
+register_component(HealthRenderer)
 
-struct EX6_TransformScreen
+struct TransformScreen
 {
 	vec2f position;
 	vec2f scale;
 	float rotation;
 };
-register_component(EX6_TransformScreen)
+register_component(TransformScreen)
 
-struct EX6_Sprite9Patch
+struct Sprite9Patch
 {
 	SDL_Texture* texture;
 	SDL_FRect    rect;
@@ -68,16 +68,16 @@ struct EX6_Sprite9Patch
 	vec2f        margins_ver;
 	color        tint;
 };
-register_component(EX6_Sprite9Patch)
+register_component(Sprite9Patch)
 
-struct EX6_ImageButton
+struct ImageButton
 {
 	TTF_Text* ttf_text; // owned
 
 	void (*fn_callback_hover)(SDLContext* context, ITU_EntityId id);
 	void (*fn_callback_click)(SDLContext* context, ITU_EntityId id);
 };
-register_component(EX6_ImageButton)
+register_component(ImageButton)
 
 
 static ITU_EntityId id_player;
@@ -136,7 +136,7 @@ void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int en
 }
 
 
-void ex6_system_camera_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+void system_camera_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	for(int i = 0; i < entity_ids_count; ++i)
 	{
@@ -147,7 +147,7 @@ void ex6_system_camera_target(SDLContext* context, ITU_EntityId* entity_ids, int
 	}
 }
 
-void ex6_lib_sprite_render_camera(SDLContext* context, Sprite* sprite, EX6_TransformScreen* transform)
+void lib_sprite_render_camera(SDLContext* context, Sprite* sprite, TransformScreen* transform)
 {
 	SDL_FRect rect_src = sprite->rect;
 	SDL_FRect rect_dst;
@@ -174,7 +174,7 @@ void ex6_lib_sprite_render_camera(SDLContext* context, Sprite* sprite, EX6_Trans
 	);
 }
 
-void ex6_lib_sprite9patch_render_camera(SDLContext* context, EX6_Sprite9Patch* sprite, EX6_TransformScreen* transform)
+void lib_sprite9patch_render_camera(SDLContext* context, Sprite9Patch* sprite, TransformScreen* transform)
 {
 	SDL_FRect rect_src = sprite->rect;
 	SDL_FRect rect_dst;
@@ -205,15 +205,15 @@ void ex6_lib_sprite9patch_render_camera(SDLContext* context, EX6_Sprite9Patch* s
 	);
 }
 
-void ex6_system_sprite_render_camera(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+void system_sprite_render_camera(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	for(int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
-		EX6_TransformScreen* transform = entity_get_data(id, EX6_TransformScreen);
+		TransformScreen* transform = entity_get_data(id, TransformScreen);
 		Sprite*              sprite    = entity_get_data(id, Sprite);
 
-		ex6_lib_sprite_render_camera(context, sprite, transform);
+		lib_sprite_render_camera(context, sprite, transform);
 	}
 
 	// outline render target
@@ -221,26 +221,26 @@ void ex6_system_sprite_render_camera(SDLContext* context, ITU_EntityId* entity_i
 	SDL_RenderRect(context->renderer, NULL);
 }
 
-void ex6_system_sprite9patch_render_camera(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+void system_sprite9patch_render_camera(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	for(int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
-		EX6_TransformScreen* transform = entity_get_data(id, EX6_TransformScreen);
-		EX6_Sprite9Patch*    sprite = entity_get_data(id, EX6_Sprite9Patch);
+		TransformScreen* transform = entity_get_data(id, TransformScreen);
+		Sprite9Patch*    sprite = entity_get_data(id, Sprite9Patch);
 
-		ex6_lib_sprite9patch_render_camera(context, sprite, transform);
+		lib_sprite9patch_render_camera(context, sprite, transform);
 	}
 }
 
-void ex6_system_imagebutton(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+void system_imagebutton(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	for(int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
-		EX6_TransformScreen* transform   = entity_get_data(id, EX6_TransformScreen);
-		EX6_Sprite9Patch*    sprite      = entity_get_data(id, EX6_Sprite9Patch);
-		EX6_ImageButton*     imagebutton = entity_get_data(id, EX6_ImageButton);
+		TransformScreen* transform   = entity_get_data(id, TransformScreen);
+		Sprite9Patch*    sprite      = entity_get_data(id, Sprite9Patch);
+		ImageButton*     imagebutton = entity_get_data(id, ImageButton);
 
 		SDL_FRect rect_dst;
 		rect_dst.w = transform->scale.x * sprite->size.x;
@@ -258,18 +258,18 @@ void ex6_system_imagebutton(SDLContext* context, ITU_EntityId* entity_ids, int e
 
 		if(SDL_PointInRectFloat((SDL_FPoint*)&mouse_camera_pos, &rect_dst))
 		{
-			sprite->tint = EX6_COLOR_BTN_HOVER;
+			sprite->tint = COLOR_BTN_HOVER;
 			if(imagebutton->fn_callback_hover)
 				imagebutton->fn_callback_hover(context, id);
 
 			if(context->btn_isdown[BTN_TYPE_UI_SELECT])
-				sprite->tint = EX6_COLOR_BTN_CLICK;
+				sprite->tint = COLOR_BTN_CLICK;
 
 			if(context->btn_isjustpressed[BTN_TYPE_UI_SELECT] && imagebutton->fn_callback_click)
 				imagebutton->fn_callback_click(context, id);
 		}
 		else
-			sprite->tint = EX6_COLOR_BTN_DEFAULT;
+			sprite->tint = COLOR_BTN_DEFAULT;
 	}
 }
 
@@ -277,9 +277,9 @@ void ex6_system_imagebutton(SDLContext* context, ITU_EntityId* entity_ids, int e
 // COMPONENT DEBUG UI RENDER methods
 // ============================================================================================
 
-void ex6_debug_ui_render_playerdata(SDLContext* context, void* data)
+void debug_ui_render_playerdata(SDLContext* context, void* data)
 {
-	EX6_PlayerData* data_player = (EX6_PlayerData*)data;
+	PlayerData* data_player = (PlayerData*)data;
 
 	ImGui::DragFloat("curr. linear speed", &data_player->curr_speed_linear);
 	ImGui::DragFloat("curr. rotational speed", &data_player->curr_speed_rotational);
@@ -287,25 +287,25 @@ void ex6_debug_ui_render_playerdata(SDLContext* context, void* data)
 	itu_debug_ui_widget_entityid("target", data_player->target);
 }
 
-void ex6_debug_ui_render_health(SDLContext* context, void* data)
+void debug_ui_render_health(SDLContext* context, void* data)
 {
-	EX6_Health* data_health = (EX6_Health*)data;
+	Health* data_health = (Health*)data;
 
 	ImGui::DragFloat("max", &data_health->max);
 	ImGui::DragFloat("curr", &data_health->curr, 1, 0, data_health->max);
 }
 
-void ex6_debug_ui_render_healthrenderer(SDLContext* context, void* data)
+void debug_ui_render_healthrenderer(SDLContext* context, void* data)
 {
-	EX6_HealthRenderer* data_renderer = (EX6_HealthRenderer*)data;
+	HealthRenderer* data_renderer = (HealthRenderer*)data;
 
 	itu_debug_ui_widget_entityid("target", data_renderer->target);
 	ImGui::DragFloat("base widget width", &data_renderer->widget_base_w);
 }
 
-void ex6_debug_ui_render_transformscreen(SDLContext* context, void* data)
+void debug_ui_render_transformscreen(SDLContext* context, void* data)
 {
-	EX6_TransformScreen* data_transform = (EX6_TransformScreen*)data;
+	TransformScreen* data_transform = (TransformScreen*)data;
 
 	ImGui::DragFloat2("position", &data_transform->position.x);
 	ImGui::DragFloat2("scale", &data_transform->scale.x);
@@ -317,9 +317,9 @@ void ex6_debug_ui_render_transformscreen(SDLContext* context, void* data)
 	itu_lib_render_draw_point(context->renderer, data_transform->position, 5, COLOR_YELLOW);
 }
 
-void ex6_debug_ui_render_sprite9patch(SDLContext* context, void* data)
+void debug_ui_render_sprite9patch(SDLContext* context, void* data)
 {
-	EX6_Sprite9Patch* data_sprite = (EX6_Sprite9Patch*)data;
+	Sprite9Patch* data_sprite = (Sprite9Patch*)data;
 
 	itu_sys_rstorage_debug_render_texture(data_sprite->texture, &data_sprite->texture, &data_sprite->rect);
 
@@ -334,9 +334,9 @@ void ex6_debug_ui_render_sprite9patch(SDLContext* context, void* data)
 }
 
 
-void ex6_debug_ui_render_imagebutton(SDLContext* context, void* data)
+void debug_ui_render_imagebutton(SDLContext* context, void* data)
 {
-	EX6_ImageButton* data_imagebutton = (EX6_ImageButton*)data;
+	ImageButton* data_imagebutton = (ImageButton*)data;
 	//char* buf;
 	//
 	//TTF_SetTextString
@@ -373,12 +373,12 @@ void ex6_debug_ui_render_imagebutton(SDLContext* context, void* data)
 // ============================================================================================
 
 
-void ex6_system_assign_player_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+void system_assign_player_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	if(!itu_entity_is_valid(id_player))
 		return;
 
-	EX6_PlayerData* player_data = entity_get_data(id_player, EX6_PlayerData);
+	PlayerData* player_data = entity_get_data(id_player, PlayerData);
 	Transform* player_transform = entity_get_data(id_player, Transform);
 	vec2f player_pos = player_transform->position;
 
@@ -403,13 +403,13 @@ void ex6_system_assign_player_target(SDLContext* context, ITU_EntityId* entity_i
 	player_data->target = id_closest;
 }
 
-void ex6_system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	for(int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
 		Transform*      transform    = entity_get_data(id, Transform);
-		EX6_PlayerData* data         = entity_get_data(id, EX6_PlayerData);
+		PlayerData* data         = entity_get_data(id, PlayerData);
 		PhysicsData*    physics_data = entity_get_data(id, PhysicsData);
 
 		vec2f dir = VEC2F_ZERO;
@@ -436,18 +436,18 @@ void ex6_system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int
 	}
 }
 
-void ex6_system_health(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+void system_health(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	for(int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
-		EX6_HealthRenderer* renderer = entity_get_data(id, EX6_HealthRenderer);
+		HealthRenderer* renderer = entity_get_data(id, HealthRenderer);
 
 		if(!itu_entity_is_valid(renderer->target))
 			continue;
 
-		EX6_Sprite9Patch* sprite = entity_get_data(id, EX6_Sprite9Patch);
-		EX6_Health* health = entity_get_data(renderer->target, EX6_Health);
+		Sprite9Patch* sprite = entity_get_data(id, Sprite9Patch);
+		Health* health = entity_get_data(renderer->target, Health);
 
 		if(context->btn_isjustpressed[BTN_TYPE_SPACE])
 			health->curr = SDL_clamp(health->curr - health->max / 10, 0, 100);
@@ -466,23 +466,21 @@ static void game_init(SDLContext* context)
 	itu_sys_physics_init(context);
 
 	enable_component(Tilemap);
-	enable_component(EX6_PlayerData);
-	enable_component(EX6_TransformScreen);
+	enable_component(PlayerData);
+	enable_component(TransformScreen);
 	
-
-
-	add_component_debug_ui_render(EX6_PlayerData, ex6_debug_ui_render_playerdata);
-	add_component_debug_ui_render(EX6_TransformScreen, ex6_debug_ui_render_transformscreen);
-	//TODO: add_component_debug_ui_render(Tilemap, ex6_debug_ui_render_tilemap);
+	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
+	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
+	//TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
 
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ASTEROID, "asteroid");
 	
 	add_system(system_tilemap_render				, component_mask(Transform) | component_mask(Tilemap)          , 0);
-	add_system(ex6_system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ASTEROID));
-	add_system(ex6_system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(EX6_PlayerData)  , 0);
-	add_system(ex6_system_sprite_render_camera      , component_mask(EX6_TransformScreen) | component_mask(Sprite)          , 0);
-	add_system(ex6_system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET));
+	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ASTEROID));
+	add_system(system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData)  , 0);
+	add_system(system_sprite_render_camera      , component_mask(TransformScreen) | component_mask(Sprite)          , 0);
+	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET));
 
 }
 
@@ -545,7 +543,7 @@ static void game_reset(SDLContext* context)
 		Sprite sprite;
 		itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(0, 8, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 
-		EX6_PlayerData data = { 0 };
+		PlayerData data = { 0 };
 
 		// FIXME this is thrash
 		PhysicsData physics_data = { 0 };
@@ -559,7 +557,7 @@ static void game_reset(SDLContext* context)
 
 		entity_add_component(id_player, Transform     , transform);
 		entity_add_component(id_player, Sprite        , sprite);
-		entity_add_component(id_player, EX6_PlayerData, data);
+		entity_add_component(id_player, PlayerData, data);
 		entity_add_component(id_player, PhysicsData   , physics_data);
 		entity_add_component(id_player, ShapeData     , shape_data);
 		itu_entity_tag_add(id_player, TAG_CAMERA_TARGET);

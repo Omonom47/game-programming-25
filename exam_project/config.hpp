@@ -1,4 +1,4 @@
-#define TEXTURE_PIXELS_PER_UNIT 128 // how many pixels of textures will be mapped to a single world unit
+#define TEXTURE_PIXELS_PER_UNIT 16 // how many pixels of textures will be mapped to a single world unit
 #define CAMERA_PIXELS_PER_UNIT  32  // how many pixels of windows will be used to render a single world unit
 
 #define ENABLE_DIAGNOSTICS
@@ -21,3 +21,7 @@
 #define EX6_COLOR_BTN_DEFAULT color { 0.5f, 0.5f, 0.5f, 1.0f }
 #define EX6_COLOR_BTN_HOVER   color { 0.75f, 0.75f, 0.75f, 1.0f }
 #define EX6_COLOR_BTN_CLICK   color { 1.0f, 1.0f, 1.0f, 1.0f }
+
+// tileset information
+#define TILESET_NUM_COLS 12
+#define TILESET_NUM_ROWS 11

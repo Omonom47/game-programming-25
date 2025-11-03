@@ -1,4 +1,5 @@
 #include <config.hpp>
+#include <utilities/room_parser.cpp>
 #include <itu_unity_include.hpp>
 
 // ui colors
@@ -14,6 +15,17 @@ enum EX6_Tags
 	TAG_CAMERA_TARGET,
 	TAG_ASTEROID
 };
+
+struct Tilemap
+{
+	SDL_Texture* texture;
+	int          num_rows;
+	int          num_cols;
+	int          tile_size; // in pixels
+	int*         tile_ids;  // array of arrays [num_rows][num_cols]
+};
+
+register_component(Tilemap)
 
 struct EX6_PlayerData
 {
@@ -72,9 +84,57 @@ static ITU_EntityId id_player;
 
 static TTF_TextEngine* ttf_engine;
 
+const int tile_mapping[] = {
+	40, // wall 
+	48 // floor 
+};
+
 // ============================================================================================
 // TMP methods
 // ============================================================================================
+
+void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+{
+	for(int i = 0; i < entity_ids_count; ++i)
+	{
+		ITU_EntityId id = entity_ids[i];
+		Tilemap* tilemap = entity_get_data(id, Tilemap);
+		Transform* transform = entity_get_data(id, Transform);
+		float tile_offset = -0.5f; // to center the tile on its position
+
+		for (int y = 0; y < tilemap->num_rows; ++y)
+		{
+			for (int x = 0; x < tilemap->num_cols; ++x)
+			{
+				int tile_id_map = tilemap->tile_ids[y * tilemap->num_cols + x];
+				int tile_id_texture = tile_mapping[tile_id_map];
+				int tile_coord_x = tile_id_texture % TILESET_NUM_COLS;
+				int tile_coord_y = tile_id_texture / TILESET_NUM_COLS;
+
+				// get source rect from texture size and tile coords
+				SDL_FRect rect_src;
+				rect_src.w = tilemap->tile_size;
+				rect_src.h = tilemap->tile_size;
+				rect_src.x = tile_coord_x * rect_src.w;
+				rect_src.y = tile_coord_y * rect_src.h;
+
+				// get destination rect based on current x and y
+				SDL_FRect rect_dst;
+				rect_dst.w = transform->scale.x * (tilemap->tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
+				rect_dst.h = transform->scale.y * (tilemap->tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
+				rect_dst.x = transform->position.x + rect_dst.w * (x + tile_offset); // offsetting the destination rect to center the tile
+				rect_dst.y = transform->position.y + rect_dst.h * (y + tile_offset); // offsetting the destination rect to center the tile
+				rect_dst = rect_global_to_screen(context, rect_dst);
+				
+				// render tile
+				SDL_RenderTexture(context->renderer, tilemap->texture, &rect_src, &rect_dst);
+			}
+		}
+
+	}
+	
+}
+
 
 void ex6_system_camera_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
@@ -309,16 +369,9 @@ void ex6_debug_ui_render_imagebutton(SDLContext* context, void* data)
 }
 
 // ============================================================================================
-// 
+//  
 // ============================================================================================
 
-// NOTE: we reached the GameState nirvana (all resources are handled by a dedicated system, more of a "game engine" approach)
-struct GameState
-{
-	// // SDL-allocated structures
-	// SDL_Texture* atlas_space;
-	// SDL_Texture* ui_healtbar;
-};
 
 void ex6_system_assign_player_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
@@ -403,62 +456,46 @@ void ex6_system_health(SDLContext* context, ITU_EntityId* entity_ids, int entity
 	}
 }
 
-static void game_init(SDLContext* context, GameState* state)
+static void game_init(SDLContext* context)
 {
-	itu_sys_rstorage_texture_load(context, "data/kenney/simpleSpace_tilesheet_2.png", SDL_SCALEMODE_LINEAR);
-	itu_sys_rstorage_texture_load(context, "data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
-	itu_sys_rstorage_texture_load(context, "data/kenney/UI/panel_square.png", SDL_SCALEMODE_LINEAR);
-	itu_sys_rstorage_font_load(context, "data/ARIAL.TTF", 42);
-	itu_sys_rstorage_font_load(context, "data/ARIALI.TTF", 42);
-	itu_sys_rstorage_font_load(context, "data/ARIALBD.TTF", 42);
 
-	ttf_engine = TTF_CreateRendererTextEngine(context->renderer);
+	itu_sys_rstorage_texture_load(context, "data/kenney/tiny_dungeon_packed.png", SDL_SCALEMODE_NEAREST);
+	itu_sys_rstorage_font_load(context, "data/ARIALBD.TTF", 42);
 
 	itu_sys_estorage_init(512);
 	itu_sys_physics_init(context);
 
+	enable_component(Tilemap);
 	enable_component(EX6_PlayerData);
-	enable_component(EX6_Health);
-	enable_component(EX6_HealthRenderer);
 	enable_component(EX6_TransformScreen);
-	enable_component(EX6_Sprite9Patch);
-	enable_component(EX6_ImageButton);
+	
+
 
 	add_component_debug_ui_render(EX6_PlayerData, ex6_debug_ui_render_playerdata);
-	add_component_debug_ui_render(EX6_Health, ex6_debug_ui_render_health);
-	add_component_debug_ui_render(EX6_HealthRenderer, ex6_debug_ui_render_healthrenderer);
 	add_component_debug_ui_render(EX6_TransformScreen, ex6_debug_ui_render_transformscreen);
-	add_component_debug_ui_render(EX6_Sprite9Patch, ex6_debug_ui_render_sprite9patch);
-	add_component_debug_ui_render(EX6_ImageButton, ex6_debug_ui_render_imagebutton);
+	//TODO: add_component_debug_ui_render(Tilemap, ex6_debug_ui_render_tilemap);
 
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ASTEROID, "asteroid");
 	
+	add_system(system_tilemap_render				, component_mask(Transform) | component_mask(Tilemap)          , 0);
 	add_system(ex6_system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ASTEROID));
 	add_system(ex6_system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(EX6_PlayerData)  , 0);
-	add_system(ex6_system_health                    , component_mask(EX6_HealthRenderer)  | component_mask(EX6_Sprite9Patch), 0);
 	add_system(ex6_system_sprite_render_camera      , component_mask(EX6_TransformScreen) | component_mask(Sprite)          , 0);
-	add_system(ex6_system_sprite9patch_render_camera, component_mask(EX6_TransformScreen) | component_mask(EX6_Sprite9Patch), 0);
-	add_system(ex6_system_imagebutton               , component_mask(EX6_TransformScreen) | component_mask(EX6_Sprite9Patch) | component_mask(EX6_ImageButton) , 0);
 	add_system(ex6_system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET));
+
 }
 
-void TMP_btn_callback_hover(SDLContext* context, ITU_EntityId id) { SDL_Log(""); }
-void TMP_btn_callback_click(SDLContext* context, ITU_EntityId id) { SDL_Log("click"); }
-
-static void game_reset(SDLContext* context, GameState* state)
+static void game_reset(SDLContext* context)
 {
 	// TMP get textures pointers
-	//     these should come from a serialized file
-	SDL_Texture* tex_space     = itu_sys_rstorage_texture_get_ptr(0);
-	SDL_Texture* tex_healthbar = itu_sys_rstorage_texture_get_ptr(1);
-	SDL_Texture* tex_button    = itu_sys_rstorage_texture_get_ptr(2);
-	TTF_Font*    font_bold     = itu_sys_rstorage_font_get_ptr(2);
+	SDL_Texture* texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
+	TTF_Font* font_bold = itu_sys_rstorage_font_get_ptr(0);
 
 	itu_sys_estorage_clear_all_entities();
 
 	b2WorldDef world_def = b2DefaultWorldDef();
-	world_def.gravity.y = 0;
+	world_def.gravity.y = 0; //Since top-down there is no gravity (anything falling downwards)
 	itu_sys_physics_reset(&world_def);
 
 	SDL_assert(ENTITY_COUNT <= ENTITIES_COUNT_MAX);
@@ -468,6 +505,36 @@ static void game_reset(SDLContext* context, GameState* state)
 	b2Circle circle = { 0 };
 	circle.radius = 0.25f;
 
+	//tilemap
+	{
+		ITU_EntityId id_tilemap = itu_entity_create();
+		itu_entity_set_debug_name(id_tilemap, "tilemap");
+
+		Tilemap tilemap; 
+		vector<vector<int>> tilemap_ids = generate_room_matrix_from_file("../exam_project/room_templates/simple_room.txt");
+		tilemap.num_rows = (int)tilemap_ids.size();
+		tilemap.num_cols = (int)tilemap_ids[0].size();
+		tilemap.tile_ids = (int*)malloc(sizeof(int) * tilemap.num_rows * tilemap.num_cols);
+
+		for (int y = 0; y < tilemap.num_rows; ++y)
+		{
+			for (int x = 0; x < tilemap.num_cols; ++x)
+			{
+				tilemap.tile_ids[y * tilemap.num_cols + x] = tilemap_ids[y][x];
+			}
+		}
+
+		tilemap.texture = texture_tiles;
+		tilemap.tile_size = 16;
+
+		Transform transform = TRANSFORM_DEFAULT;
+		transform.position = VEC2F_ZERO;
+		transform.scale = vec2f { 1.0f, 1.0f };
+
+		entity_add_component(id_tilemap, Transform, transform);
+		entity_add_component(id_tilemap, Tilemap , tilemap);
+	}
+
 	// player
 	{
 		id_player = itu_entity_create();
@@ -476,7 +543,7 @@ static void game_reset(SDLContext* context, GameState* state)
 		transform.position.y = -7;
 
 		Sprite sprite;
-		itu_lib_sprite_init(&sprite, tex_space, itu_lib_sprite_get_rect(0, 1, 128, 128));
+		itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(0, 8, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 
 		EX6_PlayerData data = { 0 };
 
@@ -490,117 +557,20 @@ static void game_reset(SDLContext* context, GameState* state)
 		ShapeData shape_data;
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
-		
-		EX6_Health health;
-		health.max = 100;
-		health.curr = 100;
-
-
 		entity_add_component(id_player, Transform     , transform);
 		entity_add_component(id_player, Sprite        , sprite);
 		entity_add_component(id_player, EX6_PlayerData, data);
 		entity_add_component(id_player, PhysicsData   , physics_data);
 		entity_add_component(id_player, ShapeData     , shape_data);
-		entity_add_component(id_player, EX6_Health    , health);
 		itu_entity_tag_add(id_player, TAG_CAMERA_TARGET);
 	}
 
-	// entities
-	for(int i = 0; i < ENTITY_COUNT; ++i)
-	{
-		ITU_EntityId id = itu_entity_create();
-		char name_buf[16];
-		SDL_snprintf(name_buf, 16, "asteroid_%d", i);
-		itu_entity_set_debug_name(id, name_buf);
-
-		Transform transform = { 0 };
-		Sprite sprite;
-
-		transform.scale = VEC2F_ONE;
-		transform.position.x = SDL_randf() * 16 - 8;
-		transform.position.y = SDL_randf() * 16 - 8;
-
-		itu_lib_sprite_init(&sprite, tex_space, itu_lib_sprite_get_rect(0, 4, 128, 128));
-
-		// FIXME this is thrash
-		PhysicsStaticData physics_data = { 0 };
-		body_def.position = value_cast(b2Vec2, transform.position);
-		body_def.type = b2_staticBody;
-		physics_data.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
-
-		
-		ShapeData shape_data;
-		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
-
-		entity_add_component(id, Transform,   transform);
-		entity_add_component(id, Sprite,      sprite);
-		entity_add_component(id, PhysicsStaticData, physics_data);
-		entity_add_component(id, ShapeData, shape_data);
-		itu_entity_tag_add(id, TAG_ASTEROID);
-
-	}
-
-	// healtbar
-	{
-		ITU_EntityId id = itu_entity_create();
-		itu_entity_set_debug_name(id, "UI-healtbar");
-		EX6_TransformScreen transform = { 0 };
-		transform.scale = VEC2F_ONE;
-		transform.position = { 20, 18 };
-
-		EX6_Sprite9Patch   sprite;
-		sprite.rect = { 0, 0, 96, 16 };
-		sprite.texture = tex_healthbar;
-		sprite.size = { 760, 16 };
-		sprite.margins_hor = { 8, 8 };
-		sprite.margins_ver = { 8, 8 };
-		sprite.pivot.x = 0.0f;
-		sprite.pivot.y = 0.0f;
-		sprite.tint = COLOR_WHITE;
-
-		EX6_HealthRenderer renderer;
-		renderer.target = id_player;
-		renderer.widget_base_w = sprite.size.x;
-
-		entity_add_component(id, EX6_TransformScreen, transform);
-		entity_add_component(id, EX6_Sprite9Patch, sprite);
-		entity_add_component(id, EX6_HealthRenderer, renderer);
-	}
-
-	// button
-	{
-		ITU_EntityId id = itu_entity_create();
-		itu_entity_set_debug_name(id, "UI-Button");
-		EX6_TransformScreen transform = { 0 };
-		transform.scale = VEC2F_ONE;
-		transform.position = { 20, context->window_h - 18 };
-
-		EX6_Sprite9Patch sprite;
-		sprite.rect = { 0, 0, 64, 64 };
-		sprite.texture = tex_button;
-		sprite.size = { 280, 48 };
-		sprite.margins_hor = { 8, 8 };
-		sprite.margins_ver = { 8, 8 };
-		sprite.pivot.x = 0.0f;
-		sprite.pivot.y = 1.0f;
-		sprite.tint = COLOR_WHITE;
-
-		const char btn_text[] = "I am a button!";
-		EX6_ImageButton imagebutton = { 0 };
-		imagebutton.fn_callback_click = TMP_btn_callback_click;
-		imagebutton.ttf_text = TTF_CreateText(ttf_engine, font_bold, btn_text, SDL_strlen(btn_text));
-
-		entity_add_component(id, EX6_TransformScreen, transform);
-		entity_add_component(id, EX6_Sprite9Patch, sprite);
-		entity_add_component(id, EX6_ImageButton, imagebutton);
-	}
 }
 
 int main(void)
 {
 	bool quit = false;
 	SDLContext context = { 0 };
-	GameState  state   = { };
 
 	context.window_w = WINDOW_W;
 	context.window_h = WINDOW_H;
@@ -608,7 +578,7 @@ int main(void)
 	TTF_Init();
 
 	context.working_dir = SDL_GetCurrentDirectory();
-	context.window = SDL_CreateWindow("ES06 - UI", WINDOW_W, WINDOW_H, 0);
+	context.window = SDL_CreateWindow("Not Binding of Isaac", WINDOW_W, WINDOW_H, 0);
 	context.renderer = SDL_CreateRenderer(context.window, "vulkan");
 	SDL_SetRenderDrawBlendMode(context.renderer, SDL_BLENDMODE_BLEND);
 	
@@ -630,11 +600,11 @@ int main(void)
 	context.camera_default.pixels_per_unit = CAMERA_PIXELS_PER_UNIT;
 	camera_set_active(&context, &context.camera_default);
 
-	// set degu UI shown by default (new and shiny, let's showcase it)
+	// set debug UI shown by default (new and shiny, let's showcase it)
 	context.debug_ui_show = true;
 
-	game_init(&context, &state);
-	game_reset(&context, &state);
+	game_init(&context);
+	game_reset(&context);
 
 	SDL_Time walltime_frame_beg;
 	SDL_Time walltime_frame_end;

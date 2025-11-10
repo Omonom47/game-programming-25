@@ -25,3 +25,9 @@
 // tileset information
 #define TILESET_NUM_COLS 12
 #define TILESET_NUM_ROWS 11
+
+// room information
+
+#define ROOM_NUM_TILES_X 10
+#define ROOM_NUM_TILES_Y 10
+#

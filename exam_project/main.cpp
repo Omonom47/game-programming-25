@@ -1,5 +1,6 @@
 #include <config.hpp>
 #include <utilities/room_parser.cpp>
+#include <utilities/map_generator.cpp>
 #include <itu_unity_include.hpp>
 
 // ui colors
@@ -19,10 +20,12 @@ enum Tags
 struct Tilemap
 {
 	SDL_Texture* texture;
+	vec2f 		 pivot;
 	int          num_rows;
 	int          num_cols;
 	int          tile_size; // in pixels
 	int*		 tile_ids;  // array of arrays [num_rows][num_cols]
+
 };
 
 register_component(Tilemap)
@@ -90,6 +93,16 @@ const int tile_mapping[] = {
 };
 
 // ============================================================================================
+// Map generation methods
+// ============================================================================================
+
+vec2f room_coordinate_to_world_position(int room_x, int room_y, int room_width, int room_height){
+	float world_x = room_x * room_width;
+	float world_y = room_y * room_height;
+	return vec2f { world_x, world_y };
+}
+
+// ============================================================================================
 // TMP methods
 // ============================================================================================
 
@@ -124,6 +137,8 @@ void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int en
 				rect_dst.h = transform->scale.y * (tilemap->tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
 				rect_dst.x = transform->position.x + rect_dst.w * (x + tile_offset); // offsetting the destination rect to center the tile
 				rect_dst.y = transform->position.y + rect_dst.h * (y + tile_offset); // offsetting the destination rect to center the tile
+				rect_dst.x = rect_dst.x - (tilemap->pivot.x * ROOM_NUM_TILES_X); 
+				rect_dst.y = rect_dst.y - (tilemap->pivot.y * ROOM_NUM_TILES_Y);
 				rect_dst = rect_global_to_screen(context, rect_dst);
 				
 				// render tile
@@ -425,23 +440,35 @@ static void game_reset(SDLContext* context)
 
 	//tilemap
 	{
-		ITU_EntityId id_tilemap = itu_entity_create();
-		itu_entity_set_debug_name(id_tilemap, "tilemap");
-
-		Tilemap tilemap; 
+		Map map = generate_map(10, 10, 10, context->prng);
 		Room room = generate_room_matrix_from_file("../exam_project/room_templates/simple_room.txt");
-		tilemap.num_cols = room.num_cols;
-		tilemap.num_rows = room.num_rows;
-		tilemap.tile_ids = room.tiles;
-		tilemap.texture = texture_tiles;
-		tilemap.tile_size = 16;
 
-		Transform transform = TRANSFORM_DEFAULT;
-		transform.position = VEC2F_ZERO;
-		transform.scale = vec2f { 1.0f, 1.0f };
+		Point start_room = map.room_locations.at(0);
+		context->player_start_position = room_coordinate_to_world_position(start_room.x, start_room.y, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
 
-		entity_add_component(id_tilemap, Transform, transform);
-		entity_add_component(id_tilemap, Tilemap , tilemap);
+		for (Point room_loc : map.room_locations){
+			ITU_EntityId id_tilemap = itu_entity_create();
+			itu_entity_set_debug_name(id_tilemap, "tilemap");
+
+			Tilemap tilemap; 
+		
+			tilemap.num_cols = room.num_cols;
+			tilemap.num_rows = room.num_rows;
+			tilemap.tile_ids = room.tiles;
+			tilemap.texture = texture_tiles;
+			tilemap.tile_size = 16;
+			tilemap.pivot = { 0.5f, 0.5f };
+
+			Transform transform = TRANSFORM_DEFAULT;
+
+			int tile_size = tilemap.tile_size;
+			transform.position  = room_coordinate_to_world_position(room_loc.x, room_loc.y, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
+			transform.scale = vec2f { 1.0f, 1.0f };
+			
+			entity_add_component(id_tilemap, Transform, transform);
+			entity_add_component(id_tilemap, Tilemap , tilemap);
+		}
+
 	}
 
 	// player
@@ -449,7 +476,7 @@ static void game_reset(SDLContext* context)
 		id_player = itu_entity_create();
 		itu_entity_set_debug_name(id_player, "player");
 		Transform transform = TRANSFORM_DEFAULT;
-		transform.position.y = -7;
+		transform.position = context->player_start_position;
 
 		Sprite sprite;
 		itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(0, 8, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
@@ -480,6 +507,10 @@ int main(void)
 {
 	bool quit = false;
 	SDLContext context = { 0 };
+	
+	PRNG engine = { std::mt19937() };
+    init_rng(&engine);
+	context.prng = &engine;
 
 	context.window_w = WINDOW_W;
 	context.window_h = WINDOW_H;
@@ -565,6 +596,19 @@ int main(void)
 						ImGui::LabelText("work", "%6.3f ms/f", (float)elapsed_work  / (float)MILLIS(1));
 						ImGui::LabelText("tot",  "%6.3f ms/f", (float)elapsed_frame / (float)MILLIS(1));
 						ImGui::LabelText("physics steps",  "%d", context.physics_steps_count);
+						
+						ImGui::Separator();
+
+						ImGui::Text("Player position");
+						Transform* transform_player = entity_get_data(id_player, Transform);
+						ImGui::LabelText("x", "%f", transform_player->position.x);
+						ImGui::LabelText("y", "%f", transform_player->position.y);
+
+						ImGui::Separator();
+
+						ImGui::Text("Starting position");
+						ImGui::LabelText("x", "%f", context.player_start_position.x);
+						ImGui::LabelText("y", "%f", context.player_start_position.y);
 
 						ImGui::EndTabItem();
 					}

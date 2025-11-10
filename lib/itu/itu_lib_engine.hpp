@@ -58,6 +58,8 @@ struct SDLContext
 	float zoom;     // render zoom
 	float window_w;	// current window width after render zoom has been applied
 	float window_h;	// current window width after render zoom has been applied
+	PRNG* prng;     // pointer to the global PRNG engine
+	vec2f player_start_position;
 
 	float delta;    // in seconds
 	float uptime;   // in seconds

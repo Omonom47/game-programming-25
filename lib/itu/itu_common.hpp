@@ -5,6 +5,9 @@
 #include <SDL3/SDL_log.h>    // SDL_Log()
 #include <SDL3/SDL_error.h>  // SDL_Error()
 #include <SDL3/SDL_stdinc.h> // SDL_assert(), all math functions and macros
+#include <bits/stdc++.h>
+#include <ctime>
+#include <random>
 #endif
 
 // *******************************************************************
@@ -435,6 +438,36 @@ float easing(float t, EasingFunction fn)
 	// unknown easing, just return `t` and call it a day
 	return t;
 }
+
+// *******************************************************************
+// Random Number Generator (RNG)
+// *******************************************************************
+struct PRNG
+{
+    mt19937 rng;
+};
+
+void init_rng(PRNG* ret){
+    mt19937 rng(time(nullptr));
+    ret->rng = rng;
+}
+
+
+uint32_t random_up_to(uint32_t range, PRNG* engine){
+    uint32_t x = engine->rng();
+    uint64_t m = uint64_t(x) * uint64_t(range);
+    return m >> 32;
+}
+
+/**
+ * Generates random number in range [min,max)
+ * Assumes that min < max   
+ */
+uint32_t random_in_range(uint32_t min, uint32_t max, PRNG* engine){
+    uint32_t ran = max - min;
+    return random_up_to(ran ,engine) + min;
+}
+
 
 
 #endif // ITU_COMMON_HPP

@@ -486,61 +486,46 @@ static void game_reset(SDLContext* context)
 			entity_add_component(id_tilemap, Transform, transform);
 			entity_add_component(id_tilemap, Tilemap , tilemap);
 
-
-			b2BodyDef room_def = b2DefaultBodyDef();
-			room_def.type = b2_staticBody;
-			
-
-			//collision detection
+			// player vs tile collision detection
 			for (int r = 0; r < room.num_rows; ++r) {
-				for(int c = 0; c < room.num_cols; ++c) {
-					
 
+				for(int c = 0; c < room.num_cols; ++c) {
 					int idx = r * room.num_cols + c;
 					int tile_id = tilemap.tile_ids[idx];
 					if(!is_solid_tile(tile_id)) continue;
 
-					ITU_EntityId tile_collider_id = itu_entity_create();
-					itu_entity_set_debug_name(tile_collider_id, "tile-collider");
-
+					int width = 1;
+					while (c + width < room.num_cols && is_solid_tile(tilemap.tile_ids[idx + width])) ++width;
+			
+					//Calculate starting tile position in row
 					vec2f tile_position;
 					std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(&tilemap, &transform, c, r, 0);
-					b2Vec2 body_position = value_cast(b2Vec2, tile_position); 
+
+					ITU_EntityId row_id = itu_entity_create();
+					itu_entity_set_debug_name(row_id, "tile-collider");
 
 					b2BodyDef tile_body_def = b2DefaultBodyDef();
 					tile_body_def.type = b2_staticBody;
-					tile_body_def.position = body_position;
 
-					PhysicsStaticData physics_data = { 0 };
-					b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, tile_collider_id), &tile_body_def);
+					//Calculate center of rectangle
+					float row_end_x = tile_position.x + width;
+					tile_body_def.position = b2Vec2 { (tile_position.x + row_end_x) * 0.5f - 0.5f, tile_position.y};
 
-					
+					b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, row_id), &tile_body_def);
 					b2ShapeDef shape_def = b2DefaultShapeDef();
-					float half = (tilemap.tile_size * 0.5f) * METERS_PER_PIXEL; //m
-					b2Polygon box = b2MakeBox(half, half);
+					b2Polygon box = b2MakeBox(width * 0.5f, 0.5f);
 					
 					ShapeData shape_data = { 0 };
 					shape_data.shape_id = b2CreatePolygonShape(body_id, &shape_def, &box);
+                    entity_add_component(row_id, ShapeData, shape_data);
 
-					//entity_add_component(tile_collider_id, PhysicsStaticData, physics_data);
-                    entity_add_component(tile_collider_id, ShapeData, shape_data);
-					
+					//Skip consumed
+					c += (width - 1);		
 				}
 					
 			}
 		}
 		
-		{
-			// ITU_EntityId id = itu_entity_create();
-			// b2BodyDef def = b2DefaultBodyDef();
-			// def.type = b2_staticBody;
-			// def.position = b2Vec2_zero;
-
-			// b2Polygon poly = b2MakeBox(1,1);
-			
-
-		}
-
 	}
 
 	// player
@@ -586,6 +571,7 @@ int main(void)
 
 	context.window_w = WINDOW_W;
 	context.window_h = WINDOW_H;
+	context.render_debug = false;
 
 	TTF_Init();
 
@@ -652,7 +638,8 @@ int main(void)
 
 		// render
 		itu_sys_estorage_render_update(&context);
-		itu_sys_physics_debug_draw();
+		if (context.render_debug) itu_sys_physics_debug_draw();
+		
 
 #ifdef ENABLE_DIAGNOSTICS
 		{
@@ -693,6 +680,17 @@ int main(void)
 					if(ImGui::BeginTabItem("Resources"))
 					{
 						itu_sys_rstorage_debug_render(&context);
+						ImGui::EndTabItem();
+					}
+					if(ImGui::BeginTabItem("Extra"))
+					{
+						if(ImGui::Button("game_reset()")){
+							game_reset(&context);
+						}
+						if(ImGui::Button("draw map collisions"))
+						{
+							context.render_debug = !context.render_debug;
+						}
 						ImGui::EndTabItem();
 					}
 

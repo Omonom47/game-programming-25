@@ -30,4 +30,4 @@
 
 #define ROOM_NUM_TILES_X 10
 #define ROOM_NUM_TILES_Y 10
-#
+#define MAX_ENEMIES_PER_ROOM 5

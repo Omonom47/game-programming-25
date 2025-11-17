@@ -92,6 +92,9 @@ const int tile_mapping[] = {
 	48 // floor 
 };
 
+const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
+const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
+
 // ============================================================================================
 // Map generation methods
 // ============================================================================================
@@ -100,6 +103,21 @@ vec2f room_coordinate_to_world_position(int room_x, int room_y, int room_width, 
 	float world_x = room_x * room_width;
 	float world_y = room_y * room_height;
 	return vec2f { world_x, world_y };
+}
+
+std::tuple<vec2f, vec2f> tile_coordinate_to_world_position(Tilemap* tilemap, Transform* transform, int tile_col, int tile_row, float tile_offset = -0.5f, vec2f pivot = vec2f{ 0.5f, 0.5f }){
+	int tile_size = tilemap->tile_size;
+	
+	float width = transform->scale.x * (tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
+	float height = transform->scale.y * (tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
+	float x = transform->position.x + width * (tile_col + tile_offset) - (pivot.x * ROOM_NUM_TILES_X);
+	float y = transform->position.y + height * (tile_row + tile_offset) - (pivot.y * ROOM_NUM_TILES_Y);
+
+	return std::make_tuple(vec2f { width, height }, vec2f { x, y });
+}
+
+bool is_solid_tile(int tile_id){
+	return tile_id == 0; 
 }
 
 // ============================================================================================
@@ -133,12 +151,13 @@ void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int en
 
 				// get destination rect based on current x and y
 				SDL_FRect rect_dst;
-				rect_dst.w = transform->scale.x * (tilemap->tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
-				rect_dst.h = transform->scale.y * (tilemap->tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
-				rect_dst.x = transform->position.x + rect_dst.w * (x + tile_offset); // offsetting the destination rect to center the tile
-				rect_dst.y = transform->position.y + rect_dst.h * (y + tile_offset); // offsetting the destination rect to center the tile
-				rect_dst.x = rect_dst.x - (tilemap->pivot.x * ROOM_NUM_TILES_X); 
-				rect_dst.y = rect_dst.y - (tilemap->pivot.y * ROOM_NUM_TILES_Y);
+				vec2f width_height;
+				vec2f position;
+				std::tie(width_height, position) = tile_coordinate_to_world_position(tilemap, transform, x, y);
+				rect_dst.w = width_height.x;
+				rect_dst.h = width_height.y;
+				rect_dst.x = position.x;
+				rect_dst.y = position.y;
 				rect_dst = rect_global_to_screen(context, rect_dst);
 				
 				// render tile
@@ -416,6 +435,7 @@ static void game_init(SDLContext* context)
 	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
 
 	add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0, true);
+	
 
 }
 
@@ -442,7 +462,7 @@ static void game_reset(SDLContext* context)
 	{
 		Map map = generate_map(10, 10, 10, context->prng);
 		Room room = generate_room_matrix_from_file("../exam_project/room_templates/simple_room.txt");
-
+ 
 		Point start_room = map.room_locations.at(0);
 		context->player_start_position = room_coordinate_to_world_position(start_room.x, start_room.y, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
 
@@ -460,13 +480,65 @@ static void game_reset(SDLContext* context)
 			tilemap.pivot = { 0.5f, 0.5f };
 
 			Transform transform = TRANSFORM_DEFAULT;
-
-			int tile_size = tilemap.tile_size;
-			transform.position  = room_coordinate_to_world_position(room_loc.x, room_loc.y, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
 			transform.scale = vec2f { 1.0f, 1.0f };
+			transform.position  = room_coordinate_to_world_position(room_loc.x, room_loc.y, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
 			
 			entity_add_component(id_tilemap, Transform, transform);
 			entity_add_component(id_tilemap, Tilemap , tilemap);
+
+
+			b2BodyDef room_def = b2DefaultBodyDef();
+			room_def.type = b2_staticBody;
+			
+
+			//collision detection
+			for (int r = 0; r < room.num_rows; ++r) {
+				for(int c = 0; c < room.num_cols; ++c) {
+					
+
+					int idx = r * room.num_cols + c;
+					int tile_id = tilemap.tile_ids[idx];
+					if(!is_solid_tile(tile_id)) continue;
+
+					ITU_EntityId tile_collider_id = itu_entity_create();
+					itu_entity_set_debug_name(tile_collider_id, "tile-collider");
+
+					vec2f tile_position;
+					std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(&tilemap, &transform, c, r, 0);
+					b2Vec2 body_position = value_cast(b2Vec2, tile_position); 
+
+					b2BodyDef tile_body_def = b2DefaultBodyDef();
+					tile_body_def.type = b2_staticBody;
+					tile_body_def.position = body_position;
+
+					PhysicsStaticData physics_data = { 0 };
+					b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, tile_collider_id), &tile_body_def);
+
+					
+					b2ShapeDef shape_def = b2DefaultShapeDef();
+					float half = (tilemap.tile_size * 0.5f) * METERS_PER_PIXEL; //m
+					b2Polygon box = b2MakeBox(half, half);
+					
+					ShapeData shape_data = { 0 };
+					shape_data.shape_id = b2CreatePolygonShape(body_id, &shape_def, &box);
+
+					//entity_add_component(tile_collider_id, PhysicsStaticData, physics_data);
+                    entity_add_component(tile_collider_id, ShapeData, shape_data);
+					
+				}
+					
+			}
+		}
+		
+		{
+			// ITU_EntityId id = itu_entity_create();
+			// b2BodyDef def = b2DefaultBodyDef();
+			// def.type = b2_staticBody;
+			// def.position = b2Vec2_zero;
+
+			// b2Polygon poly = b2MakeBox(1,1);
+			
+
 		}
 
 	}
@@ -580,6 +652,7 @@ int main(void)
 
 		// render
 		itu_sys_estorage_render_update(&context);
+		itu_sys_physics_debug_draw();
 
 #ifdef ENABLE_DIAGNOSTICS
 		{

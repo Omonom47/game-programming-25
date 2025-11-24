@@ -772,11 +772,14 @@ static void game_reset(SDLContext* context)
 			
 			PhysicsData pd = { 0 };
 			pd.ignore_rotation = true;
+			b2BodyDef body_def = b2DefaultBodyDef();
 			body_def.position = value_cast(b2Vec2, transform.position);
+			body_def.userData = value_cast(void*, id);
 			pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
 
 			ShapeData shape_data;
-			
+			b2ShapeDef shape_def = b2DefaultShapeDef();
+			shape_def.enableContactEvents = true;
 			shape_data.shape_id = b2CreateCapsuleShape(pd.body_id,&shape_def,&capsule);
 			entity_add_component(id, Transform, transform);
 			entity_add_component(id, Sprite, sprite);

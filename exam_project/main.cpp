@@ -128,6 +128,47 @@ bool is_solid_tile(int tile_id){
 }
 
 // ============================================================================================
+// Collision Callbacks 
+// ============================================================================================
+
+void system_collision_events(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+{
+	b2ContactEvents contactEvents = itu_sys_physics_get_contact_events();
+	//iterate begin events
+	for (int i = 0; i < contactEvents.beginCount; ++i) {
+
+		b2ContactBeginTouchEvent* beginEvent = contactEvents.beginEvents + i;
+		b2ShapeId shapeIdA = beginEvent->shapeIdA;
+		b2ShapeId shapeIdB = beginEvent->shapeIdB;
+
+		// shapeid to bodyid to entityid
+		void* entityA_data = b2Body_GetUserData(b2Shape_GetBody(shapeIdA));
+		void* entityB_data = b2Body_GetUserData(b2Shape_GetBody(shapeIdB));
+		ITU_EntityId entityAId = value_cast(ITU_EntityId, entityA_data);
+		ITU_EntityId entityBId = value_cast(ITU_EntityId, entityB_data);
+
+		// Handle Collision Start Events
+	
+	}
+	for (int i = 0; i < contactEvents.endCount; ++i) {
+		b2ContactEndTouchEvent* event = contactEvents.endEvents + i;
+		b2ShapeId shapeIdA = event->shapeIdA;
+		b2ShapeId shapeIdB = event->shapeIdB;
+
+		// shapeid to bodyid to entityid
+		void* entityA_data = b2Body_GetUserData(b2Shape_GetBody(shapeIdA));
+		void* entityB_data = b2Body_GetUserData(b2Shape_GetBody(shapeIdB));
+		ITU_EntityId entityAId = value_cast(ITU_EntityId, entityA_data);
+		ITU_EntityId entityBId = value_cast(ITU_EntityId, entityB_data);
+
+		// Handle Collision End Events
+
+	}
+
+}
+
+
+// ============================================================================================
 // TMP methods
 // ============================================================================================
 
@@ -444,7 +485,7 @@ static void game_init(SDLContext* context)
 	add_system(system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData)  , 0, false);
 	add_system(system_sprite_render_camera      , component_mask(TransformScreen) | component_mask(Sprite)          , 0, true);
 	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
-
+	add_system(system_collision_events			, component_mask(Transform), 0, false );
 	add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0, true);
 	
 
@@ -519,6 +560,7 @@ static void game_reset(SDLContext* context)
 						itu_entity_set_debug_name(row_id, "tile-collider");
 
 						b2BodyDef tile_body_def = b2DefaultBodyDef();
+						tile_body_def.userData = value_cast(void*, row_id);
 						tile_body_def.type = b2_staticBody;
 
 						//Calculate center of rectangle
@@ -527,6 +569,8 @@ static void game_reset(SDLContext* context)
 
 						b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, row_id), &tile_body_def);
 						b2ShapeDef shape_def = b2DefaultShapeDef();
+						shape_def.enableContactEvents = false;
+						
 						b2Polygon box = b2MakeBox(width * 0.5f, 0.5f);
 						
 						ShapeData shape_data = { 0 };
@@ -544,14 +588,8 @@ static void game_reset(SDLContext* context)
 		}
 			
 	}
-	b2ShapeDef shape_def = b2DefaultShapeDef();
-	b2BodyDef body_def = b2DefaultBodyDef();
-	body_def.type = b2_dynamicBody;
-	b2Circle circle = { 0 };
-	circle.radius = 0.25f;
 	
 	
-
 	// Enemies
 	{
 		for(vec2f pos : enemy_placements){
@@ -565,8 +603,17 @@ static void game_reset(SDLContext* context)
 
 			PhysicsData physics_data = { 0 };
 			physics_data.ignore_rotation = true;
+
+			b2BodyDef body_def = b2DefaultBodyDef();
+			body_def.userData = value_cast(void*, enemy_id);
+			body_def.type = b2_dynamicBody;
+			b2Circle circle = { 0 };
+			circle.radius = 0.25f;	
 			body_def.position = value_cast(b2Vec2,transform.position);
 			physics_data.body_id = itu_sys_physics_add_body(value_cast(void*, enemy_id), &body_def);
+
+			b2ShapeDef shape_def = b2DefaultShapeDef();
+			shape_def.enableContactEvents = true;
 
 			ShapeData shape_data;
 			shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
@@ -593,12 +640,22 @@ static void game_reset(SDLContext* context)
 
 		PlayerData data = { 0 };
 
-		// FIXME this is thrash
 		PhysicsData physics_data = { 0 };
 		physics_data.ignore_rotation = true;
+		
+		b2BodyDef body_def = b2DefaultBodyDef();
+		body_def.userData = value_cast(void*, id_player);
+		body_def.type = b2_dynamicBody;
 		body_def.position = value_cast(b2Vec2, transform.position);
 		physics_data.body_id = itu_sys_physics_add_body(value_cast(void*, id_player), &body_def);
 		
+		b2ShapeDef shape_def = b2DefaultShapeDef();
+		shape_def.enableContactEvents = true;
+		
+		b2Circle circle = { 0 };
+		circle.radius = 0.25f;
+		shape_def.isSensor = false;
+
 		ShapeData shape_data;
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 

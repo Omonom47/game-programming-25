@@ -95,7 +95,7 @@ struct ShooterData
 	unsigned int bullet_count;
 	unsigned int next_bullet_idx;
 	float cooldown_left;
-	ITU_EntityId* bullets;
+	ITU_EntityId bullets[BULLET_POOL_SIZE];
 };
 register_component(ShooterData)
 
@@ -550,6 +550,9 @@ static void game_init(SDLContext* context)
 	enable_component(Tilemap);
 	enable_component(PlayerData);
 	enable_component(TransformScreen);
+	enable_component(EnemyData);
+	enable_component(BulletData);
+	enable_component(ShooterData);
 	
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
@@ -664,7 +667,6 @@ static void game_reset(SDLContext* context)
 
 							
 				}
-				
 			}
 		}
 			
@@ -750,10 +752,12 @@ static void game_reset(SDLContext* context)
 
 	//bullets
 	{
-		b2Capsule capsule;
+		b2Capsule capsule = { 0 };
+		capsule.center1 = b2Vec2_zero;
+		capsule.center2 = b2Vec2_zero;
 		capsule.radius = 0.15f;
 
-		ShooterData shooter = { 0 };
+		ShooterData shooter;
 		shooter.bullet_count = BULLET_POOL_SIZE;
 		shooter.weapon = basic_weapon;
 
@@ -768,7 +772,12 @@ static void game_reset(SDLContext* context)
 			Sprite sprite;
 			itu_lib_sprite_init(&sprite,texture_tiles,itu_lib_sprite_get_rect(11,10,TEXTURE_PIXELS_PER_UNIT,TEXTURE_PIXELS_PER_UNIT));
 
-			BulletData bd = { 0 };
+			BulletData bd;
+			bd.is_active = false;
+			bd.damage = 0;
+			bd.direction = VEC2F_ZERO;
+			bd.speed = 0;
+			bd.update_behaviour = nullptr;
 			
 			PhysicsData pd = { 0 };
 			pd.ignore_rotation = true;

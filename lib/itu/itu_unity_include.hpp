@@ -40,6 +40,8 @@
 #include <itu_default_systems.cpp>
 #include <itu_entity_storage.cpp>
 
+#include <utilities/weapon_utils.hpp>
+
 #include <bits/stdc++.h>
 #include <ctime>
 #include <random>

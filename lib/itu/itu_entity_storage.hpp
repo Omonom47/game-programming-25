@@ -7,6 +7,7 @@
 #ifndef ITU_UNITY_BUILD
 #include <SDL3/SDL.h>
 #include <itu_lib_engine.hpp>
+#include <tuple>
 #endif
 
 // NOTE: this is decided by the size of the `component_mask` type (Uint64).
@@ -29,6 +30,10 @@ struct ITU_EntityId
 	Uint32 generation;
 	Uint32 index;
 };
+
+bool operator !=(const ITU_EntityId& a, const ITU_EntityId& b){
+	return std::tie(a.generation,a.index) != std::tie(b.generation,b.index);
+}
 
 typedef Uint8 ITU_ComponentType;
 typedef Uint8 ITU_TagType;

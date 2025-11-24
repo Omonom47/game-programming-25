@@ -1,7 +1,7 @@
 #include <config.hpp>
+#include <itu_unity_include.hpp>
 #include <utilities/room_parser.cpp>
 #include <utilities/map_generator.cpp>
-#include <itu_unity_include.hpp>
 
 // ui colors
 #define COLOR_BTN_DEFAULT color { 0.5f, 0.5f, 0.5f, 1.0f }
@@ -89,6 +89,15 @@ struct ImageButton
 };
 register_component(ImageButton)
 
+struct ShooterData
+{
+	Weapon weapon;
+	uint bullet_count;
+	uint next_bullet_idx;
+	float cooldown_left;
+	ITU_EntityId* bullets;
+};
+register_component(ShooterData)
 
 static ITU_EntityId id_player;
 
@@ -456,6 +465,75 @@ void system_health(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids
 	}
 }
 
+void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count){
+	for (int i = 0; i < entity_ids_count; i++)
+	{
+		ITU_EntityId id = entity_ids[i];
+		ShooterData* shooter = entity_get_data(id,ShooterData);
+		
+		if(shooter->cooldown_left <= shooter->weapon.cooldown){
+			shooter->cooldown_left += context->delta;
+		}
+		
+		if(context->btn_isjustpressed_space){
+			Transform* transform = entity_get_data(id,Transform);
+			PlayerData* pd = entity_get_data(id,PlayerData);
+	
+			ITU_EntityId null_ent = ITU_ENTITY_ID_NULL;
+			Transform* target;
+			vec2f direction;
+			if(pd->target != null_ent){
+	
+				target = entity_get_data(pd->target,Transform);
+				direction = normalize(target->position - transform->position);
+			}
+			else{
+				direction = VEC2F_RIGHT;
+			}
+	
+	
+			int bullet_amount = shooter->weapon.bullets_per_shot;
+			uint start_index = shooter->next_bullet_idx;
+			for (int j = 0; j < bullet_amount; j++)
+			{
+				ITU_EntityId bullet_id = shooter->bullets[start_index];
+				BulletData* bd = entity_get_data(bullet_id,BulletData);
+				Transform* bt = entity_get_data(bullet_id,Transform);
+	
+				bd->is_active = true;
+				bd->direction = direction;
+				bd->speed = shooter->weapon.bullet_speed;
+				bd->update_behaviour = shooter->weapon.fn_bullet_behaviour;
+	
+				bt->position = transform->position;
+				
+				start_index++;
+				if(start_index >= shooter->bullet_count){
+					start_index = 0;
+				}
+			}
+			shooter->next_bullet_idx = start_index;
+		}
+
+	}
+	
+}
+
+void system_bullet_update(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count){
+	for (int i = 0; i < entity_ids_count; i++)
+	{
+		ITU_EntityId id = entity_ids[i];
+		BulletData* bd = entity_get_data(id,BulletData);
+		
+		if(!bd->is_active) continue;
+
+		PhysicsData* pd = entity_get_data(id,PhysicsData);
+		
+		bd->update_behaviour(pd,bd->direction,bd->speed);
+	}
+}
+
+
 bool is_same_room(Point r1, Point r2){
 	return r1.x == r2.x && r1.y == r2.y;
 }
@@ -485,6 +563,9 @@ static void game_init(SDLContext* context)
 	add_system(system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData)  , 0, false);
 	add_system(system_sprite_render_camera      , component_mask(TransformScreen) | component_mask(Sprite)          , 0, true);
 	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
+
+	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform),0,false);
+	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0, false);
 	add_system(system_collision_events			, component_mask(Transform), 0, false );
 	add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0, true);
 	
@@ -667,6 +748,45 @@ static void game_reset(SDLContext* context)
 		itu_entity_tag_add(id_player, TAG_CAMERA_TARGET);
 	}
 
+	//bullets
+	{
+		b2Capsule capsule;
+		capsule.radius = 0.15f;
+
+		ShooterData shooter = { 0 };
+		shooter.bullet_count = BULLET_POOL_SIZE;
+		shooter.weapon = basic_weapon;
+
+		for (size_t i = 0; i < BULLET_POOL_SIZE; i++)
+		{
+			ITU_EntityId id = itu_entity_create();
+			shooter.bullets[i] = id;
+
+			itu_entity_set_debug_name(id,"bullet" + i);
+			Transform transform = TRANSFORM_DEFAULT;
+
+			Sprite sprite;
+			itu_lib_sprite_init(&sprite,texture_tiles,itu_lib_sprite_get_rect(11,10,TEXTURE_PIXELS_PER_UNIT,TEXTURE_PIXELS_PER_UNIT));
+
+			BulletData bd = { 0 };
+			
+			PhysicsData pd = { 0 };
+			pd.ignore_rotation = true;
+			body_def.position = value_cast(b2Vec2, transform.position);
+			pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
+
+			ShapeData shape_data;
+			
+			shape_data.shape_id = b2CreateCapsuleShape(pd.body_id,&shape_def,&capsule);
+			entity_add_component(id, Transform, transform);
+			entity_add_component(id, Sprite, sprite);
+			entity_add_component(id, BulletData, bd);
+			entity_add_component(id, PhysicsData, pd);
+			entity_add_component(id, ShapeData, shape_data);
+		}
+		entity_add_component(id_player,ShooterData,shooter);
+	}
+
 }
 
 int main(void)
@@ -674,7 +794,7 @@ int main(void)
 	bool quit = false;
 	SDLContext context = { 0 };
 	
-	PRNG engine = { std::mt19937() };
+	PRNG engine;
     init_rng(&engine);
 	context.prng = &engine;
 
@@ -685,9 +805,9 @@ int main(void)
 	TTF_Init();
 
 	context.working_dir = SDL_GetCurrentDirectory();
-	context.window = SDL_CreateWindow("Not Binding of Isaac", WINDOW_W, WINDOW_H, 0);
-	context.renderer = SDL_CreateRenderer(context.window, "vulkan");
+	SDL_CreateWindowAndRenderer("Not Binding of Isaac", WINDOW_W, WINDOW_H, 0, &context.window, &context.renderer);
 	SDL_SetRenderDrawBlendMode(context.renderer, SDL_BLENDMODE_BLEND);
+	SDL_SetRenderVSync(context.renderer, SDL_RENDERER_VSYNC_ADAPTIVE);
 	
 	// increase the zoom to make debug text more legible
 	// (ie, on the class projector, we will usually use 2)

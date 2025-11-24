@@ -6,6 +6,20 @@
 #define STB_DS_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 
+//Standard library includes
+#include <ctime>
+#include <random>
+#include <tuple>
+#include <cmath>
+#include <vector>
+#include <cstdint>
+#include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <algorithm>
+#include <string>
+
+
 #include <SDL3/SDL.h>
 #include <SDL3_mixer/SDL_mixer.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -42,6 +56,4 @@
 
 #include <utilities/weapon_utils.hpp>
 
-#include <bits/stdc++.h>
-#include <ctime>
-#include <random>
+

@@ -9,7 +9,7 @@ typedef void (*BulletBehaviourUpdateFunction) (PhysicsData*pd, vec2f dir, float 
 struct BulletData
 {
 	bool is_active;
-	uint damage;
+	unsigned int damage;
 	float speed;
 	vec2f direction;
 	BulletBehaviourUpdateFunction update_behaviour;
@@ -31,8 +31,8 @@ struct Weapon
 	ShotPattern pattern;
 };
 
-void fn_straigh_shot(PhysicsData* pd, vec2f dir, float speed){
+void fn_straight_shot(PhysicsData* pd, vec2f dir, float speed){
 	pd->velocity = dir * speed;
 }
 
-Weapon basic_weapon = { 1, 1, 1, 1, fn_straigh_shot, STRAIGHT_AHEAD};
+Weapon basic_weapon = { 1, 1, 1, 1, fn_straight_shot, STRAIGHT_AHEAD};

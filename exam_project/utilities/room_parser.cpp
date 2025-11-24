@@ -1,5 +1,6 @@
-#include <bits/stdc++.h>
-using namespace std;
+#ifndef ITU_UNITY_BUILD
+#include <itu_common.hpp>
+#endif
 
 struct Room 
 {
@@ -9,23 +10,24 @@ struct Room
 };
 
 
-Room generate_room_matrix_from_file(string file_path)
+Room generate_room_matrix_from_file(std::string file_path)
 {
-    ifstream f(file_path);
+
+    std::ifstream f(file_path);
 
     if (!f.is_open()) {
-        cerr << "Failed to open file." << endl;
-        cerr << "File path: " << file_path << endl;
-        string current_path = std::filesystem::current_path().string();
-        cerr << "Current working directory: " << current_path << endl;
+        std::cerr << "Failed to open file." << std::endl;
+        std::cerr << "File path: " << file_path << std::endl;
+        std::string current_path = std::filesystem::current_path().string();
+        std::cerr << "Current working directory: " << current_path << std::endl;
         return {};
     }
 
-    vector<vector<int>> room;
-    string line;
+    std::vector<std::vector<int>> room;
+    std::string line;
 
-    while (getline(f, line)) {
-        vector<int> row;
+    while (std::getline(f, line)) {
+        std::vector<int> row;
         for (char ch : line) {
             switch (ch) {
                 case '0':
@@ -35,7 +37,7 @@ Room generate_room_matrix_from_file(string file_path)
                     row.push_back(1);
                     break; 
                 default:
-                    cerr << "Unknown tile type: " << ch << endl;
+                    std::cerr << "Unknown tile type: " << ch << std::endl;
                     break;
             }
         }
@@ -45,7 +47,7 @@ Room generate_room_matrix_from_file(string file_path)
     f.close();
 
     // inverting the room vertically to match the coordinate system
-    reverse(room.begin(), room.end());
+    std::reverse(room.begin(), room.end());
 
     // flatten 2D vector to 1D array
     int* flattened_room = new int[room.size() * room[0].size()];

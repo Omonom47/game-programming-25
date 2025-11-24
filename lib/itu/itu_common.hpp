@@ -444,11 +444,11 @@ float easing(float t, EasingFunction fn)
 // *******************************************************************
 struct PRNG
 {
-    mt19937 rng;
+    std::mt19937 rng;
 };
 
 void init_rng(PRNG* ret){
-    mt19937 rng(time(nullptr));
+    std::mt19937 rng(time(nullptr));
     ret->rng = rng;
 }
 
@@ -467,6 +467,8 @@ uint32_t random_in_range(uint32_t min, uint32_t max, PRNG* engine){
     uint32_t ran = max - min;
     return random_up_to(ran ,engine) + min;
 }
+
+
 
 
 

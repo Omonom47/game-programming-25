@@ -18,7 +18,7 @@ enum Direction
 
 struct Map
 {
-    vector<Point> room_locations;
+    std::vector<Point> room_locations;
 };
 
 bool check_bounds(int x, int y, int width, int height){
@@ -61,11 +61,8 @@ Direction choose_new_direction(Direction current_direction, PRNG* engine){
 
 
 Map generate_map(int width, int height, int num_rooms, PRNG* engine){
-    cout << "Generating map with " << num_rooms << " rooms within " << width << "x" << height << " grid." << endl;
     uint32_t x = random_up_to(width, engine);
     uint32_t y = random_up_to(height, engine);
-
-    cout << "Starting room at (" << x << ", " << y << ")" << endl;
 
     Direction current_direction = Direction(random_up_to(4, engine));
     

@@ -92,8 +92,8 @@ register_component(ImageButton)
 struct ShooterData
 {
 	Weapon weapon;
-	uint bullet_count;
-	uint next_bullet_idx;
+	unsigned int bullet_count;
+	unsigned int next_bullet_idx;
 	float cooldown_left;
 	ITU_EntityId* bullets;
 };
@@ -493,7 +493,7 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 	
 	
 			int bullet_amount = shooter->weapon.bullets_per_shot;
-			uint start_index = shooter->next_bullet_idx;
+			unsigned int start_index = shooter->next_bullet_idx;
 			for (int j = 0; j < bullet_amount; j++)
 			{
 				ITU_EntityId bullet_id = shooter->bullets[start_index];
@@ -586,7 +586,7 @@ static void game_reset(SDLContext* context)
 
 	SDL_assert(ENTITY_COUNT <= ENTITIES_COUNT_MAX);
 
-	vector<vec2f> enemy_placements;
+	std::vector<vec2f> enemy_placements;
 	//tilemap
 	{
 		Map map = generate_map(10, 10, 10, context->prng);

@@ -14,7 +14,7 @@ float design_speed_rotational;
 enum Tags
 {
 	TAG_CAMERA_TARGET,
-	TAG_ASTEROID
+	TAG_ENEMY
 };
 
 struct Tilemap
@@ -566,10 +566,10 @@ static void game_init(SDLContext* context)
 	//TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
 
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
-	itu_sys_estorage_tag_set_debug_name(TAG_ASTEROID, "asteroid");
+	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "asteroid");
 	
 	add_system(system_tilemap_render				, component_mask(Transform) | component_mask(Tilemap)          , 0, true);
-	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ASTEROID), false);
+	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ENEMY), false);
 	add_system(system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData)  , 0, false);
 	add_system(system_sprite_render_camera      , component_mask(TransformScreen) | component_mask(Sprite)          , 0, true);
 	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
@@ -716,6 +716,7 @@ static void game_reset(SDLContext* context)
 			entity_add_component(enemy_id, ShapeData, shape_data);
 			entity_add_component(enemy_id, EnemyData, ed);
 			entity_add_component(enemy_id, Sprite, sprite);
+			itu_entity_tag_add(enemy_id,TAG_ENEMY);
 		}	
 	}
 

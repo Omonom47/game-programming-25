@@ -108,8 +108,26 @@ const int tile_mapping[] = {
 	48 // floor 
 };
 
+
+
 const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
 const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
+
+// =============================================================
+// Delete scheduled entities
+// =============================================================
+
+std::vector<std::tuple<b2BodyId, ITU_EntityId>> bodiesScheduleForDeletion;
+
+void destoryEntitiesScheduled() {
+	for (auto& body_entity_pair : bodiesScheduleForDeletion) {
+		b2BodyId body = std::get<0>(body_entity_pair);
+		ITU_EntityId entity_id = std::get<1>(body_entity_pair);
+		b2DestroyBody(body);
+		itu_entity_destroy(entity_id);
+	}
+	bodiesScheduleForDeletion.clear();
+}
 
 // ============================================================================================
 // Map generation methods
@@ -137,45 +155,102 @@ bool is_solid_tile(int tile_id){
 }
 
 // ============================================================================================
+// Health Handler
+// ============================================================================================
+
+
+
+
+
+// ============================================================================================
 // Collision Callbacks 
 // ============================================================================================
 
-void system_collision_events(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
-	b2ContactEvents contactEvents = itu_sys_physics_get_contact_events();
-	//iterate begin events
-	for (int i = 0; i < contactEvents.beginCount; ++i) {
+	for (int i = 0; i < entity_ids_count; ++i) {
+		ITU_EntityId id = entity_ids[i];
+		
+		ShapeData* shape_data = entity_get_data(id, ShapeData);
+		b2ShapeId shape_id = shape_data->shape_id;
 
-		b2ContactBeginTouchEvent* beginEvent = contactEvents.beginEvents + i;
-		b2ShapeId shapeIdA = beginEvent->shapeIdA;
-		b2ShapeId shapeIdB = beginEvent->shapeIdB;
+		b2ContactData* contactData = new b2ContactData[10];
+		int contact = b2Shape_GetContactData(shape_id, contactData, 10);
+		for (int j = 0; j < contact; ++j) {
+			b2ContactData contact_data = contactData[j];
+			b2ShapeId other_id = (contact_data.shapeIdA.index1 == shape_id.index1) ? contact_data.shapeIdB : contact_data.shapeIdA;
+			b2Filter filter = b2Shape_GetFilter(other_id);
 
-		// shapeid to bodyid to entityid
-		void* entityA_data = b2Body_GetUserData(b2Shape_GetBody(shapeIdA));
-		void* entityB_data = b2Body_GetUserData(b2Shape_GetBody(shapeIdB));
-		ITU_EntityId entityAId = value_cast(ITU_EntityId, entityA_data);
-		ITU_EntityId entityBId = value_cast(ITU_EntityId, entityB_data);
-
-		// Handle Collision Start Events
-	
-	}
-	for (int i = 0; i < contactEvents.endCount; ++i) {
-		b2ContactEndTouchEvent* event = contactEvents.endEvents + i;
-		b2ShapeId shapeIdA = event->shapeIdA;
-		b2ShapeId shapeIdB = event->shapeIdB;
-
-		// shapeid to bodyid to entityid
-		void* entityA_data = b2Body_GetUserData(b2Shape_GetBody(shapeIdA));
-		void* entityB_data = b2Body_GetUserData(b2Shape_GetBody(shapeIdB));
-		ITU_EntityId entityAId = value_cast(ITU_EntityId, entityA_data);
-		ITU_EntityId entityBId = value_cast(ITU_EntityId, entityB_data);
-
-		// Handle Collision End Events
-
+			// Handle collision with enemies
+			if (filter.categoryBits & ENEMIES) {
+				Health* health = entity_get_data(id, Health);
+				health->curr -= 1;
+				if (health->curr < 0.0f) {
+					printf("Player died!\n");
+					context->game_over = true;
+				}
+			}
+			
+		}
 	}
 
 }
 
+void system_bullet_collision_events(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+{
+	for (int i = 0; i < entity_ids_count; ++i) {
+		ITU_EntityId id = entity_ids[i];
+		if (!entity_get_isActive(id))
+			continue;
+
+		ShapeData* shape_data = entity_get_data(id, ShapeData);
+		b2ShapeId bullet_id = shape_data->shape_id;
+
+		b2ContactData* contactData = new b2ContactData[10];
+		int contact = b2Shape_GetContactData(bullet_id, contactData, 10);
+		if (contact > 0) {
+			printf("Bullet hit something!\n");
+			entity_set_active(id, false);
+		}
+		
+	}
+	
+}
+
+void system_enemy_collision_events(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+{
+	for (int i = 0; i < entity_ids_count; ++i) {
+		ITU_EntityId id = entity_ids[i];
+		if (!entity_get_isActive(id))
+			continue;
+
+		ShapeData* shape_data = entity_get_data(id, ShapeData);
+		b2ShapeId enemy_id = shape_data->shape_id;
+
+		b2ContactData* contactData = new b2ContactData[10];
+		int contact = b2Shape_GetContactData(enemy_id, contactData, 10);
+		for (int j = 0; j < contact; ++j) {
+			b2ContactData contact_data = contactData[j];
+			b2ShapeId other_id = (contact_data.shapeIdA.index1 == enemy_id.index1) ? contact_data.shapeIdB : contact_data.shapeIdA;
+			b2BodyId body_id = b2Shape_GetBody(other_id);
+			void* entity_data = b2Body_GetUserData(body_id);
+			ITU_EntityId other_entity_id = value_cast(ITU_EntityId, entity_data);
+			b2Filter filter = b2Shape_GetFilter(other_id);
+
+			// Handle collision with bullets
+			if (filter.categoryBits & BULLETS) {
+				Health* enemy_health = entity_get_data(id, Health);
+				enemy_health->curr -= 1;
+				if (enemy_health->curr <= 0.0f) {
+					printf("Enemy destroyed!\n");
+					entity_set_active(id, false);
+					bodiesScheduleForDeletion.push_back(std::tie(body_id, id));
+				}
+			}
+			
+		}
+	}
+}
 
 // ============================================================================================
 // TMP methods
@@ -433,15 +508,15 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 
 		physics_data->velocity = normalize(dir) * 5;
 
-		float target_rotation = 0.0f;
-		if(itu_entity_is_valid(data->target))
-		{
-			Transform* target_transform = entity_get_data(data->target, Transform);
-			vec2f lookat = normalize(target_transform->position - transform->position);
-			target_rotation = SDL_atan2f(lookat.y, lookat.x) - PI_HALF;
-		}
-		// asymptotic approach
-		transform->rotation = lerp(transform->rotation, target_rotation, 0.15f);
+		// float target_rotation = 0.0f;
+		// if(itu_entity_is_valid(data->target))
+		// {
+		// 	Transform* target_transform = entity_get_data(data->target, Transform);
+		// 	vec2f lookat = normalize(target_transform->position - transform->position);
+		// 	target_rotation = SDL_atan2f(lookat.y, lookat.x) - PI_HALF;
+		// }
+		// // asymptotic approach
+		// transform->rotation = lerp(transform->rotation, target_rotation, 0.15f);
 	}
 }
 
@@ -560,6 +635,7 @@ static void game_init(SDLContext* context)
 	enable_component(EnemyData);
 	enable_component(BulletData);
 	enable_component(ShooterData);
+	enable_component(Health);
 	
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
@@ -576,10 +652,11 @@ static void game_init(SDLContext* context)
 
 	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform),0,false);
 	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0, false);
-	add_system(system_collision_events			, component_mask(Transform), 0, false );
 	add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0, true);
-	
 
+	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0, false);
+	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0, false);
+	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);
 }
 
 static void game_reset(SDLContext* context)
@@ -710,12 +787,14 @@ static void game_reset(SDLContext* context)
 			shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
 			EnemyData ed = { 0 };
+			Health enemy_health = { 3, 3 };
 
 			entity_add_component(enemy_id, Transform, transform);
 			entity_add_component(enemy_id, PhysicsData, physics_data);
 			entity_add_component(enemy_id, ShapeData, shape_data);
 			entity_add_component(enemy_id, EnemyData, ed);
 			entity_add_component(enemy_id, Sprite, sprite);
+			entity_add_component(enemy_id, Health, enemy_health);
 		}	
 	}
 
@@ -751,11 +830,14 @@ static void game_reset(SDLContext* context)
 		ShapeData shape_data;
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
+		Health player_health = { 10, 10 };
+
 		entity_add_component(id_player, Transform     , transform);
 		entity_add_component(id_player, Sprite        , sprite);
 		entity_add_component(id_player, PlayerData, data);
 		entity_add_component(id_player, PhysicsData   , physics_data);
 		entity_add_component(id_player, ShapeData     , shape_data);
+		entity_add_component(id_player, Health        , player_health);
 		itu_entity_tag_add(id_player, TAG_CAMERA_TARGET);
 	}
 
@@ -880,6 +962,11 @@ int main(void)
 
 	while(!quit)
 	{
+		if (context.game_over){
+			game_reset(&context);
+			context.game_over = false;
+		}
+
 		quit = sdl_process_events(&context);
 
 		SDL_SetRenderDrawColor(context.renderer, 0x00, 0x00, 0x00, 0x00);
@@ -893,6 +980,7 @@ int main(void)
 		// render
 		itu_sys_estorage_render_update(&context);
 		if (context.render_debug) itu_sys_physics_debug_draw();
+
 		
 
 #ifdef ENABLE_DIAGNOSTICS
@@ -954,6 +1042,8 @@ int main(void)
 			}
 		}
 #endif
+		// Destroy scheduled entites
+		destoryEntitiesScheduled();
 
 		itu_lib_imgui_frame_end(&context);
 

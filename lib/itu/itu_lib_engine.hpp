@@ -61,6 +61,7 @@ struct SDLContext
 	PRNG* prng;     // pointer to the global PRNG engine
 	vec2f player_start_position;
 	bool render_debug;
+	bool game_over;
 
 	float delta;    // in seconds
 	float uptime;   // in seconds

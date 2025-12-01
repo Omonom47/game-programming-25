@@ -258,7 +258,7 @@ int itu_system_get_matching_entities(ITU_System* system, ITU_EntityId* out_entit
 	for(int k = 0; k < min_component_size; ++k)
 	{
 		ITU_EntityId entity_curr = min_component[k];
-		bool filter_out = false;
+		bool filter_out = !entity_get_isActive(entity_curr);
 		for(int j = 0; j < system->components_count; ++j)
 		{
 			ITU_Component* filtered_component = system->components[j];

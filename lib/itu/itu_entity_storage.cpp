@@ -51,6 +51,7 @@ struct ITU_Entity
 {
 	ITU_EntityId id;
 	Uint64 component_mask;
+	bool isActive = true;
 };
 
 struct ITU_EntityStorageContext
@@ -802,4 +803,25 @@ void itu_debug_ui_widget_entityid(const char* label, ITU_EntityId id)
 		ImGui::LabelText(label, "INVALID ENTITY");
 	else
 		ImGui::LabelText(label, "%s (%d, %d)", ctx_estorage.entities_debug_names[id.index].value, id.generation, id.index);
+}
+
+
+void entity_set_active(ITU_EntityId id, bool value){
+	if (!itu_entity_is_valid(id))
+	{
+		SDL_Log("WARNING invalid entity\n");
+		return;
+	}
+
+	ctx_estorage.entities[id.index].isActive = value;
+}
+
+bool entity_get_isActive(ITU_EntityId id){
+	if (!itu_entity_is_valid(id))
+	{
+		SDL_Log("WARNING invalid entity\n");
+		return false;
+	}
+
+	return ctx_estorage.entities[id.index].isActive;
 }

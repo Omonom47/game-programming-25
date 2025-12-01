@@ -98,6 +98,8 @@ bool  itu_entity_tag_has         (ITU_EntityId id, ITU_TagType tag);
 void  itu_entity_component_add   (ITU_EntityId id, ITU_ComponentType component_type, void* in_data_copy);
 void  itu_entity_component_remove(ITU_EntityId id, ITU_ComponentType component_type);
 void  itu_entity_destroy         (ITU_EntityId id);
+void entity_set_active(ITU_EntityId id,bool value);
+bool entity_get_isActive(ITU_EntityId id);
 
 void itu_debug_ui_widget_entityid(const char* label, ITU_EntityId id);
 #endif // ITU_ENTITY_STORAGE_HPP

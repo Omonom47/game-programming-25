@@ -471,11 +471,13 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 		ITU_EntityId id = entity_ids[i];
 		ShooterData* shooter = entity_get_data(id,ShooterData);
 		
-		if(shooter->cooldown_left <= shooter->weapon.cooldown){
-			shooter->cooldown_left += context->delta;
+		if(shooter->cooldown_left >= 0){
+			shooter->cooldown_left -= context->delta;
 		}
-		
-		if(context->btn_isjustpressed_space){
+
+		bool canShoot = shooter->cooldown_left <= 0;
+
+		if(context->btn_isjustpressed_space && canShoot){
 			Transform* transform = entity_get_data(id,Transform);
 			PlayerData* pd = entity_get_data(id,PlayerData);
 	
@@ -499,13 +501,17 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 				ITU_EntityId bullet_id = shooter->bullets[start_index];
 				BulletData* bd = entity_get_data(bullet_id,BulletData);
 				Transform* bt = entity_get_data(bullet_id,Transform);
-	
-				bd->is_active = true;
+				PhysicsData* bullet_phys = entity_get_data(bullet_id,PhysicsData);
+
+				entity_set_active(bullet_id, true);
 				bd->direction = direction;
 				bd->speed = shooter->weapon.bullet_speed;
 				bd->update_behaviour = shooter->weapon.fn_bullet_behaviour;
 	
 				bt->position = transform->position;
+				
+				b2Body_SetTransform(bullet_phys->body_id,value_cast(b2Vec2,bt->position),
+					b2Body_GetRotation(bullet_phys->body_id));
 				
 				start_index++;
 				if(start_index >= shooter->bullet_count){
@@ -513,6 +519,7 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 				}
 			}
 			shooter->next_bullet_idx = start_index;
+			shooter->cooldown_left = shooter->weapon.cooldown;
 		}
 
 	}
@@ -523,10 +530,10 @@ void system_bullet_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 	for (int i = 0; i < entity_ids_count; i++)
 	{
 		ITU_EntityId id = entity_ids[i];
-		BulletData* bd = entity_get_data(id,BulletData);
 		
-		if(!bd->is_active) continue;
-
+		if(!entity_get_isActive(id)) continue;
+		
+		BulletData* bd = entity_get_data(id,BulletData);
 		PhysicsData* pd = entity_get_data(id,PhysicsData);
 		
 		bd->update_behaviour(pd,bd->direction,bd->speed);
@@ -654,7 +661,7 @@ static void game_reset(SDLContext* context)
 						b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, row_id), &tile_body_def);
 						b2ShapeDef shape_def = b2DefaultShapeDef();
 						shape_def.enableContactEvents = false;
-						
+						shape_def.filter.categoryBits = WALLS;
 						b2Polygon box = b2MakeBox(width * 0.5f, 0.5f);
 						
 						ShapeData shape_data = { 0 };
@@ -697,7 +704,8 @@ static void game_reset(SDLContext* context)
 
 			b2ShapeDef shape_def = b2DefaultShapeDef();
 			shape_def.enableContactEvents = true;
-
+			shape_def.filter.categoryBits = ENEMIES;
+			shape_def.filter.maskBits = PLAYER | BULLETS | WALLS;
 			ShapeData shape_data;
 			shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
@@ -734,7 +742,8 @@ static void game_reset(SDLContext* context)
 		
 		b2ShapeDef shape_def = b2DefaultShapeDef();
 		shape_def.enableContactEvents = true;
-		
+		shape_def.filter.categoryBits = PLAYER;
+		shape_def.filter.maskBits = ENEMIES | WALLS;
 		b2Circle circle = { 0 };
 		circle.radius = 0.25f;
 		shape_def.isSensor = false;
@@ -760,11 +769,14 @@ static void game_reset(SDLContext* context)
 		ShooterData shooter;
 		shooter.bullet_count = BULLET_POOL_SIZE;
 		shooter.weapon = basic_weapon;
+		shooter.cooldown_left = 0;
 
 		for (size_t i = 0; i < BULLET_POOL_SIZE; i++)
 		{
 			ITU_EntityId id = itu_entity_create();
 			shooter.bullets[i] = id;
+
+			entity_set_active(id,false);
 
 			itu_entity_set_debug_name(id,"bullet" + i);
 			Transform transform = TRANSFORM_DEFAULT;
@@ -773,7 +785,6 @@ static void game_reset(SDLContext* context)
 			itu_lib_sprite_init(&sprite,texture_tiles,itu_lib_sprite_get_rect(11,10,TEXTURE_PIXELS_PER_UNIT,TEXTURE_PIXELS_PER_UNIT));
 
 			BulletData bd;
-			bd.is_active = false;
 			bd.damage = 0;
 			bd.direction = VEC2F_ZERO;
 			bd.speed = 0;
@@ -789,6 +800,8 @@ static void game_reset(SDLContext* context)
 			ShapeData shape_data;
 			b2ShapeDef shape_def = b2DefaultShapeDef();
 			shape_def.enableContactEvents = true;
+			shape_def.filter.categoryBits = BULLETS;
+			shape_def.filter.maskBits = ENEMIES | WALLS;
 			shape_data.shape_id = b2CreateCapsuleShape(pd.body_id,&shape_def,&capsule);
 			entity_add_component(id, Transform, transform);
 			entity_add_component(id, Sprite, sprite);

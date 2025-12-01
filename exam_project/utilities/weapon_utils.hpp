@@ -31,7 +31,6 @@ struct Weapon
 };
 
 void fn_straight_shot(PhysicsData* pd, vec2f dir, float speed){
-	std::cout<<"moving"<<std::endl;
 	pd->velocity = dir * speed;
 }
 

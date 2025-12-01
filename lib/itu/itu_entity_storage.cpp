@@ -628,7 +628,6 @@ ITU_EntityId itu_entity_create()
 	entity_data.component_mask = 0;
 	stbds_arrput(ctx_estorage.entities, entity_data);
 
-	SDL_Log("#entities: %u", stbds_arrlen(ctx_estorage.entities));
 	return entity_data.id;
 }
 

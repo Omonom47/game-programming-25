@@ -163,6 +163,12 @@ void itu_sys_estorage_add_component_debug_ui_render(ITU_ComponentType component_
 
 void itu_sys_estorage_clear_all_entities()
 {
+	for(int i = 0; i < ctx_estorage.components_count; ++i) {
+		itu_component_pool_clear(ctx_estorage.components[i]);
+	}
+	for (int i = 0; i < TAGS_COUNT_MAX; ++i) {
+		ctx_estorage.tags[i] = NULL;
+	}
 	stbds_arrfree(ctx_estorage.entities);
 	stbds_arrfree(ctx_estorage.entities_free);
 }
@@ -607,7 +613,8 @@ void itu_component_pool_clear(ITU_Component* component_pool)
 
 ITU_EntityId itu_entity_create()
 {
-	if(stbds_arrlen(ctx_estorage.entities_free) > 0)
+	int len = stbds_arrlen(ctx_estorage.entities_free);
+	if(len > 0)
 	{
 		ITU_EntityId id_recycled = stbds_arrpop(ctx_estorage.entities_free);
 		ctx_estorage.entities[id_recycled.index].id.index = id_recycled.index;
@@ -621,6 +628,7 @@ ITU_EntityId itu_entity_create()
 	entity_data.component_mask = 0;
 	stbds_arrput(ctx_estorage.entities, entity_data);
 
+	SDL_Log("#entities: %u", stbds_arrlen(ctx_estorage.entities));
 	return entity_data.id;
 }
 

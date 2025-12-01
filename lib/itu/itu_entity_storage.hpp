@@ -35,6 +35,10 @@ bool operator !=(const ITU_EntityId& a, const ITU_EntityId& b){
 	return std::tie(a.generation,a.index) != std::tie(b.generation,b.index);
 }
 
+bool operator ==(const ITU_EntityId& a, const ITU_EntityId& b){
+	return std::tie(a.generation,a.index) == std::tie(b.generation,b.index);
+}
+
 typedef Uint8 ITU_ComponentType;
 typedef Uint8 ITU_TagType;
 

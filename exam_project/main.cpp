@@ -154,10 +154,33 @@ bool is_solid_tile(int tile_id){
 }
 
 // ============================================================================================
-// Health Handler
+// Enemy AI methods
 // ============================================================================================
 
+void system_enemy_ai(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+{
+	for (int i = 0; i < entity_ids_count; ++i) {
+		ITU_EntityId id = entity_ids[i];
+		if (!entity_get_isActive(id))
+			continue;
 
+		EnemyData* enemy_data = entity_get_data(id, EnemyData);
+		Transform* transform = entity_get_data(id, Transform);
+		PhysicsData* physics_data = entity_get_data(id, PhysicsData);
+		Transform* player_transform = entity_get_data(id_player, Transform);
+		
+		vec2f enemy_position = transform->position;
+		vec2f player_position = player_transform->position;
+
+		int magnitude = 7 * 7;
+		if (distance_sq(player_position, enemy_position) < magnitude) {
+			vec2f direction = player_position - enemy_position;
+			vec2f normalized_direction = normalize(direction);
+			physics_data->velocity = normalized_direction * enemy_data->curr_speed_linear;
+			
+		}
+	}
+}
 
 
 
@@ -651,6 +674,8 @@ static void game_init(SDLContext* context)
 	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0, false);
 	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0, false);
 	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);
+
+	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
 }
 
 static void game_reset(SDLContext* context)
@@ -781,6 +806,7 @@ static void game_reset(SDLContext* context)
 			shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
 			EnemyData ed = { 0 };
+			ed.curr_speed_linear = 4;
 			Health enemy_health = { 3, 3 };
 
 			entity_add_component(enemy_id, Transform, transform);

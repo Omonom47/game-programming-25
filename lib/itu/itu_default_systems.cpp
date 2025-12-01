@@ -15,6 +15,8 @@ void itu_system_physics(SDLContext* context, ITU_EntityId* entity_ids, int entit
 	for(int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
+		if (!entity_get_isActive(id)) continue;
+		
 		PhysicsData* physics_data = entity_get_data(id, PhysicsData);
 
 		b2Body_SetLinearVelocity(physics_data->body_id, value_cast(b2Vec2, physics_data->velocity));

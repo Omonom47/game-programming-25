@@ -793,6 +793,7 @@ static void game_reset(SDLContext* context)
 			PhysicsData pd = { 0 };
 			pd.ignore_rotation = true;
 			b2BodyDef body_def = b2DefaultBodyDef();
+			body_def.type = b2_dynamicBody;
 			body_def.position = value_cast(b2Vec2, transform.position);
 			body_def.userData = value_cast(void*, id);
 			pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);

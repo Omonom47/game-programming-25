@@ -14,7 +14,7 @@ float design_speed_rotational;
 enum Tags
 {
 	TAG_CAMERA_TARGET,
-	TAG_ASTEROID
+	TAG_ENEMY
 };
 
 struct Tilemap
@@ -108,8 +108,6 @@ const int tile_mapping[] = {
 	48 // floor 
 };
 
-
-
 const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
 const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
 
@@ -123,8 +121,9 @@ void destoryEntitiesScheduled() {
 	for (auto& body_entity_pair : bodiesScheduleForDeletion) {
 		b2BodyId body = std::get<0>(body_entity_pair);
 		ITU_EntityId entity_id = std::get<1>(body_entity_pair);
+		entity_set_active(entity_id, false);
 		b2DestroyBody(body);
-		itu_entity_destroy(entity_id);
+		//TODO: itu_entity_destroy(entity_id);
 	}
 	bodiesScheduleForDeletion.clear();
 }
@@ -186,7 +185,6 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 				Health* health = entity_get_data(id, Health);
 				health->curr -= 1;
 				if (health->curr < 0.0f) {
-					printf("Player died!\n");
 					context->game_over = true;
 				}
 			}
@@ -209,7 +207,6 @@ void system_bullet_collision_events(SDLContext* context, ITU_EntityId* entity_id
 		b2ContactData* contactData = new b2ContactData[10];
 		int contact = b2Shape_GetContactData(bullet_id, contactData, 10);
 		if (contact > 0) {
-			printf("Bullet hit something!\n");
 			entity_set_active(id, false);
 		}
 		
@@ -242,8 +239,6 @@ void system_enemy_collision_events(SDLContext* context, ITU_EntityId* entity_ids
 				Health* enemy_health = entity_get_data(id, Health);
 				enemy_health->curr -= 1;
 				if (enemy_health->curr <= 0.0f) {
-					printf("Enemy destroyed!\n");
-					entity_set_active(id, false);
 					bodiesScheduleForDeletion.push_back(std::tie(body_id, id));
 				}
 			}
@@ -300,7 +295,6 @@ void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int en
 	}
 	
 }
-
 
 void system_camera_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
@@ -642,10 +636,10 @@ static void game_init(SDLContext* context)
 	//TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
 
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
-	itu_sys_estorage_tag_set_debug_name(TAG_ASTEROID, "asteroid");
+	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "enemy");
 	
 	add_system(system_tilemap_render				, component_mask(Transform) | component_mask(Tilemap)          , 0, true);
-	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ASTEROID), false);
+	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ENEMY), false);
 	add_system(system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData)  , 0, false);
 	add_system(system_sprite_render_camera      , component_mask(TransformScreen) | component_mask(Sprite)          , 0, true);
 	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
@@ -795,6 +789,7 @@ static void game_reset(SDLContext* context)
 			entity_add_component(enemy_id, EnemyData, ed);
 			entity_add_component(enemy_id, Sprite, sprite);
 			entity_add_component(enemy_id, Health, enemy_health);
+			itu_entity_tag_add(enemy_id,TAG_ENEMY);
 		}	
 	}
 
@@ -875,6 +870,7 @@ static void game_reset(SDLContext* context)
 			PhysicsData pd = { 0 };
 			pd.ignore_rotation = true;
 			b2BodyDef body_def = b2DefaultBodyDef();
+			body_def.type = b2_dynamicBody;
 			body_def.position = value_cast(b2Vec2, transform.position);
 			body_def.userData = value_cast(void*, id);
 			pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);

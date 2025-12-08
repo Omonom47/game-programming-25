@@ -50,6 +50,8 @@ struct Health
 {
 	float max;
 	float curr;
+	float elapsed;
+	float grace_period;
 };
 register_component(Health)
 
@@ -59,6 +61,13 @@ struct HealthRenderer
 	ITU_EntityId target;
 };
 register_component(HealthRenderer)
+
+struct CooldownRenderer
+{
+	float widget_base_w;
+	ITU_EntityId target;
+};
+register_component(CooldownRenderer)
 
 struct TransformScreen
 {
@@ -115,7 +124,7 @@ const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
 // UI methods
 // =============================================================
 
-void sprite9path_render(SDLContext* context, Sprite9Patch* sprite, TransformScreen* transform)
+void sprite9patch_render(SDLContext* context, Sprite9Patch* sprite, TransformScreen* transform)
 {
 	SDL_FRect rect_src = sprite->rect;
 	SDL_FRect rect_dst;
@@ -155,7 +164,7 @@ void system_sprite9patch_render(SDLContext* context, ITU_EntityId* entity_ids, i
 		TransformScreen* transform = entity_get_data(id, TransformScreen);
 		Sprite9Patch* sprite = entity_get_data(id, Sprite9Patch);
 
-		sprite9path_render(context, sprite, transform);
+		sprite9patch_render(context, sprite, transform);
 	}
 }
 
@@ -173,6 +182,21 @@ void system_health(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids
 	}
 }
 
+void system_weapon_cooldown(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+{
+	for(int i = 0; i < entity_ids_count; ++i)
+	{
+		ITU_EntityId id = entity_ids[i];
+		CooldownRenderer* renderer = entity_get_data(id, CooldownRenderer);
+		Sprite9Patch* sprite = entity_get_data(id, Sprite9Patch);
+
+		if(!itu_entity_is_valid(renderer->target)) continue;
+		ShooterData* shooter_data = entity_get_data(renderer->target, ShooterData);
+		Weapon weapon = shooter_data->weapon;
+		sprite->size.x = renderer->widget_base_w * (shooter_data->cooldown_left / weapon.cooldown);
+	}
+}
+
 // =============================================================
 // Delete scheduled entities
 // =============================================================
@@ -185,7 +209,7 @@ void destoryEntitiesScheduled() {
 		ITU_EntityId entity_id = std::get<1>(body_entity_pair);
 		entity_set_active(entity_id, false);
 		b2DestroyBody(body);
-		//TODO: itu_entity_destroy(entity_id);
+		
 	}
 	bodiesScheduleForDeletion.clear();
 }
@@ -268,10 +292,17 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 			// Handle collision with enemies
 			if (filter.categoryBits & ENEMIES) {
 				Health* health = entity_get_data(id, Health);
-				health->curr -= 1;
-				if (health->curr < 0.0f) {
-					context->game_over = true;
+				if (health->elapsed > health->grace_period) {
+					health->curr -= 1;
+					health->elapsed = 0.0f;
+					if (health->curr < 0.0f) {
+						context->game_over = true;
+
+					}
+					return;
 				}
+				health->elapsed += context->delta;
+				
 			}
 			
 		}
@@ -699,6 +730,7 @@ static void game_init(SDLContext* context)
 	enable_component(Health);
 	enable_component(Sprite9Patch);
 	enable_component(HealthRenderer);
+	enable_component(CooldownRenderer);
 	
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
@@ -722,8 +754,9 @@ static void game_init(SDLContext* context)
 	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);
 
 	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
+	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0, false);
+	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0, false);
 	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
-	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, false);
 }
 
 static void game_reset(SDLContext* context)
@@ -900,7 +933,7 @@ static void game_reset(SDLContext* context)
 		ShapeData shape_data;
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
-		Health player_health = { 10, 10 };
+		Health player_health = { 10, 10, 0, 1 }; //max, current, elapsed, grace_period
 
 		entity_add_component(id_player, Transform     , transform);
 		entity_add_component(id_player, Sprite        , sprite);
@@ -981,7 +1014,7 @@ static void game_reset(SDLContext* context)
 	sprite.margins_ver = { 8, 8 };
 	sprite.pivot.x = 0.0f;
 	sprite.pivot.y = 0.0f;
-	sprite.tint = COLOR_GREEN;
+	sprite.tint = COLOR_RED;
 
 	HealthRenderer renderer;
 	renderer.target = id_player;
@@ -990,6 +1023,33 @@ static void game_reset(SDLContext* context)
 	entity_add_component(id, TransformScreen, transform);
 	entity_add_component(id, Sprite9Patch, sprite);
 	entity_add_component(id, HealthRenderer, renderer);
+	}
+
+	// weapon cooldown
+	{
+	ITU_EntityId id = itu_entity_create();
+	itu_entity_set_debug_name(id, "Weapon-Cooldown");
+	TransformScreen transform = { 0 };
+	transform.scale = VEC2F_ONE;
+	transform.position = { 20, 40 };
+
+	Sprite9Patch sprite;
+	sprite.rect = { 0, 0, 96, 16 };
+	sprite.texture = texture_healthbar;
+	sprite.size = { 190, 16 };
+	sprite.margins_hor = { 8, 8 };
+	sprite.margins_ver = { 8, 8 };
+	sprite.pivot.x = 0.0f;
+	sprite.pivot.y = 0.0f;
+	sprite.tint = COLOR_GREEN;
+
+	CooldownRenderer renderer;
+	renderer.target = id_player;
+	renderer.widget_base_w = sprite.size.x;
+
+	entity_add_component(id, TransformScreen, transform);
+	entity_add_component(id, Sprite9Patch, sprite);
+	entity_add_component(id, CooldownRenderer, renderer);
 	}
 
 }

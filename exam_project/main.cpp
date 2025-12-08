@@ -112,6 +112,68 @@ const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
 const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
 
 // =============================================================
+// UI methods
+// =============================================================
+
+void sprite9path_render(SDLContext* context, Sprite9Patch* sprite, TransformScreen* transform)
+{
+	SDL_FRect rect_src = sprite->rect;
+	SDL_FRect rect_dst;
+
+	rect_dst.w = transform->scale.x * sprite->size.x;
+	rect_dst.h = transform->scale.y * sprite->size.y;
+	rect_dst.x = transform->position.x - sprite->pivot.x * rect_dst.w;
+	rect_dst.y = transform->position.y - sprite->pivot.y * rect_dst.h;
+
+	rect_dst.w = SDL_max(rect_dst.w, sprite->margins_hor.x + sprite->margins_hor.y);
+	rect_dst.h = SDL_max(rect_dst.h, sprite->margins_ver.x + sprite->margins_ver.y);
+
+	SDL_FPoint pivot_dst;
+	pivot_dst.x = sprite->pivot.x * rect_dst.w;
+	pivot_dst.y = sprite->pivot.y * rect_dst.h;
+
+	sdl_set_texture_tint(sprite->texture, sprite->tint);
+	SDL_RenderTexture9Grid(
+		context->renderer,
+		sprite->texture,
+		&rect_src,
+		sprite->margins_hor.x,
+		sprite->margins_hor.y,
+		sprite->margins_ver.x,
+		sprite->margins_ver.y,
+		transform->scale.x,
+		&rect_dst
+	);
+
+}
+
+void system_sprite9patch_render(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+{
+	for(int i = 0; i < entity_ids_count; ++i)
+	{
+		ITU_EntityId id = entity_ids[i];
+		TransformScreen* transform = entity_get_data(id, TransformScreen);
+		Sprite9Patch* sprite = entity_get_data(id, Sprite9Patch);
+
+		sprite9path_render(context, sprite, transform);
+	}
+}
+
+void system_health(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
+{
+	for(int i = 0; i < entity_ids_count; ++i)
+	{
+		ITU_EntityId id = entity_ids[i];
+		HealthRenderer* renderer = entity_get_data(id, HealthRenderer);
+		Sprite9Patch* sprite = entity_get_data(id, Sprite9Patch);
+
+		if(!itu_entity_is_valid(renderer->target)) continue;
+		Health* health = entity_get_data(renderer->target, Health);
+		sprite->size.x = renderer->widget_base_w * (health->curr / health->max);
+	}
+}
+
+// =============================================================
 // Delete scheduled entities
 // =============================================================
 
@@ -537,25 +599,6 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 	}
 }
 
-void system_health(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
-{
-	for(int i = 0; i < entity_ids_count; ++i)
-	{
-		ITU_EntityId id = entity_ids[i];
-		HealthRenderer* renderer = entity_get_data(id, HealthRenderer);
-
-		if(!itu_entity_is_valid(renderer->target))
-			continue;
-
-		Sprite9Patch* sprite = entity_get_data(id, Sprite9Patch);
-		Health* health = entity_get_data(renderer->target, Health);
-
-		if(context->btn_isjustpressed[BTN_TYPE_SPACE])
-			health->curr = SDL_clamp(health->curr - health->max / 10, 0, 100);
-
-		sprite->size.x = renderer->widget_base_w * (health->curr / health->max);
-	}
-}
 
 void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count){
 	for (int i = 0; i < entity_ids_count; i++)
@@ -641,6 +684,7 @@ static void game_init(SDLContext* context)
 {
 
 	itu_sys_rstorage_texture_load(context, "data/kenney/tiny_dungeon_packed.png", SDL_SCALEMODE_NEAREST);
+	itu_sys_rstorage_texture_load(context, "data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
 	itu_sys_rstorage_font_load(context, "data/ARIALBD.TTF", 42);
 
 	itu_sys_estorage_init(512);
@@ -653,6 +697,8 @@ static void game_init(SDLContext* context)
 	enable_component(BulletData);
 	enable_component(ShooterData);
 	enable_component(Health);
+	enable_component(Sprite9Patch);
+	enable_component(HealthRenderer);
 	
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
@@ -676,12 +722,15 @@ static void game_init(SDLContext* context)
 	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);
 
 	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
+	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
+	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, false);
 }
 
 static void game_reset(SDLContext* context)
 {
 	// TMP get textures pointers
 	SDL_Texture* texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
+	SDL_Texture* texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);
 	TTF_Font* font_bold = itu_sys_rstorage_font_get_ptr(0);
 
 	itu_sys_estorage_clear_all_entities();
@@ -862,7 +911,7 @@ static void game_reset(SDLContext* context)
 		itu_entity_tag_add(id_player, TAG_CAMERA_TARGET);
 	}
 
-	//bullets
+	// bullets
 	{
 		b2Capsule capsule = { 0 };
 		capsule.center1 = b2Vec2_zero;
@@ -914,6 +963,33 @@ static void game_reset(SDLContext* context)
 			entity_add_component(id, ShapeData, shape_data);
 		}
 		entity_add_component(id_player,ShooterData,shooter);
+	}
+
+	// healthbar
+	{
+	ITU_EntityId id = itu_entity_create();
+	itu_entity_set_debug_name(id, "Player-Healthbar");
+	TransformScreen transform = { 0 };
+	transform.scale = VEC2F_ONE;
+	transform.position = { 20, 18 };
+
+	Sprite9Patch sprite;
+	sprite.rect = { 0, 0, 96, 16 };
+	sprite.texture = texture_healthbar;
+	sprite.size = { 760, 16 };
+	sprite.margins_hor = { 8, 8 };
+	sprite.margins_ver = { 8, 8 };
+	sprite.pivot.x = 0.0f;
+	sprite.pivot.y = 0.0f;
+	sprite.tint = COLOR_GREEN;
+
+	HealthRenderer renderer;
+	renderer.target = id_player;
+	renderer.widget_base_w = sprite.size.x;
+
+	entity_add_component(id, TransformScreen, transform);
+	entity_add_component(id, Sprite9Patch, sprite);
+	entity_add_component(id, HealthRenderer, renderer);
 	}
 
 }

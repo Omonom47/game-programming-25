@@ -565,6 +565,9 @@ void debug_ui_render_imagebutton(SDLContext* context, void* data)
 // ============================================================================================
 //  
 // ============================================================================================
+bool is_odd(int val){
+	return val & 1;
+}
 
 
 void system_assign_player_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
@@ -953,7 +956,7 @@ static void game_reset(SDLContext* context)
 
 		ShooterData shooter;
 		shooter.bullet_count = BULLET_POOL_SIZE;
-		shooter.weapon = basic_weapon;
+		shooter.weapon = basic_spread;
 		shooter.cooldown_left = 0;
 
 		for (size_t i = 0; i < BULLET_POOL_SIZE; i++)

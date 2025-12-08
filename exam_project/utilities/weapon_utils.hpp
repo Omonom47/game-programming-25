@@ -34,4 +34,5 @@ void fn_straight_shot(PhysicsData* pd, vec2f dir, float speed){
 	pd->velocity = dir * speed;
 }
 
-Weapon basic_weapon = { 1, 1, 1, 6, fn_straight_shot, STRAIGHT_AHEAD};
+Weapon basic_weapon = { 1, 1, 1, 6, fn_straight_shot, STRAIGHT_AHEAD };
+Weapon basic_spread = { 2, 1, 1, 6, fn_straight_shot, SPREAD };

@@ -203,7 +203,7 @@ void system_weapon_cooldown(SDLContext* context, ITU_EntityId* entity_ids, int e
 
 std::vector<std::tuple<b2BodyId, ITU_EntityId>> bodiesScheduleForDeletion;
 
-void destoryEntitiesScheduled() {
+void destroyEntitiesScheduled() {
 	for (auto& body_entity_pair : bodiesScheduleForDeletion) {
 		b2BodyId body = std::get<0>(body_entity_pair);
 		ITU_EntityId entity_id = std::get<1>(body_entity_pair);
@@ -345,9 +345,7 @@ void system_enemy_collision_events(SDLContext* context, ITU_EntityId* entity_ids
 		for (int j = 0; j < contact; ++j) {
 			b2ContactData contact_data = contactData[j];
 			b2ShapeId other_id = (contact_data.shapeIdA.index1 == enemy_id.index1) ? contact_data.shapeIdB : contact_data.shapeIdA;
-			b2BodyId body_id = b2Shape_GetBody(other_id);
-			void* entity_data = b2Body_GetUserData(body_id);
-			ITU_EntityId other_entity_id = value_cast(ITU_EntityId, entity_data);
+			
 			b2Filter filter = b2Shape_GetFilter(other_id);
 
 			// Handle collision with bullets
@@ -355,7 +353,9 @@ void system_enemy_collision_events(SDLContext* context, ITU_EntityId* entity_ids
 				Health* enemy_health = entity_get_data(id, Health);
 				enemy_health->curr -= 1;
 				if (enemy_health->curr <= 0.0f) {
-					bodiesScheduleForDeletion.push_back(std::tie(body_id, id));
+					PhysicsData* enemy_phys = entity_get_data(id,PhysicsData);
+					
+					bodiesScheduleForDeletion.push_back(std::tie(enemy_phys->body_id, id));
 				}
 			}
 			
@@ -992,7 +992,7 @@ static void game_reset(SDLContext* context)
 
 		ShooterData shooter;
 		shooter.bullet_count = BULLET_POOL_SIZE;
-		shooter.weapon = basic_spread;
+		shooter.weapon = basic_weapon;
 		shooter.cooldown_left = 0;
 
 		for (size_t i = 0; i < BULLET_POOL_SIZE; i++)
@@ -1240,7 +1240,7 @@ int main(void)
 		}
 #endif
 		// Destroy scheduled entites
-		destoryEntitiesScheduled();
+		destroyEntitiesScheduled();
 
 		itu_lib_imgui_frame_end(&context);
 

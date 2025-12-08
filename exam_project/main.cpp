@@ -671,9 +671,10 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 			{
 				case SPREAD:
 					float angle; 
-					angle = 60.0f;
+					angle = DEG_2_RAD*60.0f;
 					float angle_between_shots;
 					angle_between_shots = (2*angle)/(float)bullet_amount;
+					angle_between_shots *= DEG_2_RAD;
 					if (is_odd(bullet_amount))
 					{
 						dirs.push_back(direction);
@@ -682,7 +683,7 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 					while (dirs.size()< bullet_amount)
 					{
 						
-						vec2f new_dir = rotate_around(direction,transform->position,angle);
+						vec2f new_dir = rotate(direction,angle);
 						
 						vec2f reflected = reflect(-new_dir,direction);
 						

@@ -257,17 +257,6 @@ inline vec2f rotate(vec2f a, float angle)
 	return ret;
 }
 
-inline vec2f rotate_around(vec2f a, vec2f pivot, float angle){
-	float sin_a = SDL_sinf(angle);
-	float cos_a = SDL_cosf(angle);
-	float xdx = a.x - pivot.x;
-	float ydy = a.y - pivot.y;
-	vec2f ret;
-	ret.x = xdx * cos_a - ydy * sin_a + pivot.x;
-	ret.y = xdx * sin_a + ydy * cos_a + pivot.y;
-	return ret;
-}
-
 inline vec2f lerp(vec2f a, vec2f b, float t)
 {
 	vec2f ret;

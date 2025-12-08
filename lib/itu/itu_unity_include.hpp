@@ -18,6 +18,7 @@
 #include <fstream>
 #include <algorithm>
 #include <string>
+#include <set>
 
 
 #include <SDL3/SDL.h>

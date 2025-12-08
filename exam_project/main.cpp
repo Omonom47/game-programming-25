@@ -201,12 +201,24 @@ void system_weapon_cooldown(SDLContext* context, ITU_EntityId* entity_ids, int e
 // Delete scheduled entities
 // =============================================================
 
+
 std::vector<std::tuple<b2BodyId, ITU_EntityId>> bodiesScheduleForDeletion;
 
 void destroyEntitiesScheduled() {
+	std::set<int32_t> alreadyHandled;
+
 	for (auto& body_entity_pair : bodiesScheduleForDeletion) {
+
 		b2BodyId body = std::get<0>(body_entity_pair);
 		ITU_EntityId entity_id = std::get<1>(body_entity_pair);
+
+		if (auto search = alreadyHandled.find(body.index1); search != alreadyHandled.end())
+		{
+			continue;
+		}
+		
+		alreadyHandled.insert(body.index1);
+
 		entity_set_active(entity_id, false);
 		b2DestroyBody(body);
 		
@@ -992,7 +1004,7 @@ static void game_reset(SDLContext* context)
 
 		ShooterData shooter;
 		shooter.bullet_count = BULLET_POOL_SIZE;
-		shooter.weapon = basic_weapon;
+		shooter.weapon = basic_spread;
 		shooter.cooldown_left = 0;
 
 		for (size_t i = 0; i < BULLET_POOL_SIZE; i++)

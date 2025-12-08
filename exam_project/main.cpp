@@ -664,7 +664,41 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 	
 	
 			int bullet_amount = shooter->weapon.bullets_per_shot;
-			unsigned int start_index = shooter->next_bullet_idx;
+			unsigned int start_index = shooter->next_bullet_idx;	
+			
+			std::vector<vec2f> dirs;
+			switch (shooter->weapon.pattern)
+			{
+				case SPREAD:
+					float angle; 
+					angle = 60.0f;
+					float angle_between_shots;
+					angle_between_shots = (2*angle)/(float)bullet_amount;
+					if (is_odd(bullet_amount))
+					{
+						dirs.push_back(direction);
+					}
+					
+					while (dirs.size()< bullet_amount)
+					{
+						
+						vec2f new_dir = rotate_around(direction,transform->position,angle);
+						
+						vec2f reflected = reflect(-new_dir,direction);
+						
+
+						dirs.push_back(normalize(new_dir));
+						dirs.push_back(normalize(reflected));
+
+						angle -= angle_between_shots;
+					}
+					
+				break;
+			
+			default:
+				break;
+			}
+			
 			for (int j = 0; j < bullet_amount; j++)
 			{
 				ITU_EntityId bullet_id = shooter->bullets[start_index];
@@ -673,7 +707,8 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 				PhysicsData* bullet_phys = entity_get_data(bullet_id,PhysicsData);
 
 				entity_set_active(bullet_id, true);
-				bd->direction = direction;
+				bd->direction = dirs.size() > 0 ? dirs[j] : direction;
+				
 				bd->speed = shooter->weapon.bullet_speed;
 				bd->update_behaviour = shooter->weapon.fn_bullet_behaviour;
 	

@@ -469,7 +469,13 @@ uint32_t random_in_range(uint32_t min, uint32_t max, PRNG* engine){
 }
 
 
+float random_float_in_range(float min, float max, PRNG* engine){
+	std::uniform_real_distribution<float> dis(min,max);
+	return dis(engine->rng);
+}
 
-
+bool is_odd(int val){
+	return val & 1;
+}
 
 #endif // ITU_COMMON_HPP

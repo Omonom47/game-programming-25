@@ -984,7 +984,7 @@ static void game_reset(SDLContext* context)
 		ShapeData shape_data;
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
-		Health player_health = { 10, 10, 0, 1 }; //max, current, elapsed, grace_period
+		Health player_health = { 10, 10, 1, 1 }; //max, current, elapsed, grace_period
 
 		entity_add_component(id_player, Transform     , transform);
 		entity_add_component(id_player, Sprite        , sprite);

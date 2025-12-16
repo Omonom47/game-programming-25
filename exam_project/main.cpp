@@ -34,6 +34,7 @@ struct PlayerData
 {
 	float curr_speed_linear;
 	float curr_speed_rotational;
+	vec2f rotation;
 
 	ITU_EntityId target;
 };
@@ -617,28 +618,35 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 		Transform*      transform    = entity_get_data(id, Transform);
 		PlayerData* data         = entity_get_data(id, PlayerData);
 		PhysicsData*    physics_data = entity_get_data(id, PhysicsData);
+		Sprite* sprite = entity_get_data(id, Sprite);
 
-		vec2f dir = VEC2F_ZERO;
-		if(context->btn_isdown[BTN_TYPE_UP])
-			dir.y += 1;
-		if(context->btn_isdown[BTN_TYPE_DOWN])
-			dir.y -= 1;
-		if(context->btn_isdown[BTN_TYPE_LEFT])
-			dir.x -= 1;
-		if(context->btn_isdown[BTN_TYPE_RIGHT])
-			dir.x += 1;
+		// Movement
+		vec2f move_dir = VEC2F_ZERO;
+		if(context->btn_isdown[BTN_TYPE_W])
+			move_dir.y += 1;
+		if(context->btn_isdown[BTN_TYPE_S])
+			move_dir.y -= 1;
+		if(context->btn_isdown[BTN_TYPE_A])
+			move_dir.x -= 1;
+		if(context->btn_isdown[BTN_TYPE_D])
+			move_dir.x += 1;
 
-		physics_data->velocity = normalize(dir) * 5;
+		physics_data->velocity = normalize(move_dir) * 5;
 
-		// float target_rotation = 0.0f;
-		// if(itu_entity_is_valid(data->target))
-		// {
-		// 	Transform* target_transform = entity_get_data(data->target, Transform);
-		// 	vec2f lookat = normalize(target_transform->position - transform->position);
-		// 	target_rotation = SDL_atan2f(lookat.y, lookat.x) - PI_HALF;
-		// }
-		// // asymptotic approach
-		// transform->rotation = lerp(transform->rotation, target_rotation, 0.15f);
+		// Shooting 
+		vec2f shoot_dir = VEC2F_ZERO;
+		if(context->btn_isdown[BTN_TYPE_UP])    shoot_dir.y += 1;
+		if(context->btn_isdown[BTN_TYPE_DOWN])  shoot_dir.y -= 1;
+		if(context->btn_isdown[BTN_TYPE_LEFT])  shoot_dir.x -= 1;
+		if(context->btn_isdown[BTN_TYPE_RIGHT]) shoot_dir.x += 1;
+
+		if (shoot_dir.x != 0 || shoot_dir.y != 0) data->rotation = normalize(shoot_dir);
+		else if (move_dir.x != 0 || move_dir.y != 0) data->rotation = normalize(move_dir);
+
+		const float step = PI / 2.0f;
+		float angle = atan2(data->rotation.y, data->rotation.x);
+		float snapped_angle = round(angle / step) * step;
+		transform->rotation = snapped_angle - PI_HALF;
 	}
 }
 
@@ -648,6 +656,7 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 	{
 		ITU_EntityId id = entity_ids[i];
 		ShooterData* shooter = entity_get_data(id,ShooterData);
+		PlayerData* player_data = entity_get_data(id, PlayerData);
 		
 		if(shooter->cooldown_left >= 0){
 			shooter->cooldown_left -= context->delta;
@@ -661,17 +670,8 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 	
 			ITU_EntityId null_ent = ITU_ENTITY_ID_NULL;
 			Transform* target;
-			vec2f direction;
-			if(pd->target != null_ent){
-	
-				target = entity_get_data(pd->target,Transform);
-				direction = normalize(target->position - transform->position);
-			}
-			else{
-				direction = VEC2F_RIGHT;
-			}
-	
-	
+			vec2f direction = player_data->rotation;
+			
 			int bullet_amount = shooter->weapon.bullets_per_shot;
 			unsigned int start_index = shooter->next_bullet_idx;	
 			
@@ -1155,10 +1155,15 @@ int main(void)
 	SDL_GetCurrentTime(&walltime_frame_beg);
 	walltime_frame_end = walltime_frame_beg;
 
-	sdl_input_set_mapping_keyboard(&context, SDLK_W,     BTN_TYPE_UP);
-	sdl_input_set_mapping_keyboard(&context, SDLK_A,     BTN_TYPE_LEFT);
-	sdl_input_set_mapping_keyboard(&context, SDLK_S,     BTN_TYPE_DOWN);
-	sdl_input_set_mapping_keyboard(&context, SDLK_D,     BTN_TYPE_RIGHT);
+	sdl_input_set_mapping_keyboard(&context, SDLK_W,     BTN_TYPE_W);
+	sdl_input_set_mapping_keyboard(&context, SDLK_A,     BTN_TYPE_A);
+	sdl_input_set_mapping_keyboard(&context, SDLK_S,     BTN_TYPE_S);
+	sdl_input_set_mapping_keyboard(&context, SDLK_D,     BTN_TYPE_D);
+	sdl_input_set_mapping_keyboard(&context, SDLK_UP,     BTN_TYPE_UP);
+	sdl_input_set_mapping_keyboard(&context, SDLK_LEFT,     BTN_TYPE_LEFT);
+	sdl_input_set_mapping_keyboard(&context, SDLK_DOWN,     BTN_TYPE_DOWN);
+	sdl_input_set_mapping_keyboard(&context, SDLK_RIGHT,     BTN_TYPE_RIGHT);
+	
 	sdl_input_set_mapping_keyboard(&context, SDLK_Q,     BTN_TYPE_ACTION_0);
 	sdl_input_set_mapping_keyboard(&context, SDLK_E,     BTN_TYPE_ACTION_1);
 	sdl_input_set_mapping_keyboard(&context, SDLK_SPACE, BTN_TYPE_SPACE);

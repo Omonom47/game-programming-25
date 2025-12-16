@@ -17,6 +17,10 @@
 
 enum BtnType
 {
+	BTN_TYPE_W,
+	BTN_TYPE_S,
+	BTN_TYPE_A,
+	BTN_TYPE_D,
 	BTN_TYPE_UP,
 	BTN_TYPE_DOWN,
 	BTN_TYPE_LEFT,
@@ -78,6 +82,10 @@ struct SDLContext
 		bool btn_isdown[BTN_TYPE_MAX];
 		struct
 		{
+			bool btn_isdown_w;
+			bool btn_isdown_s;
+			bool btn_isdown_a;
+			bool btn_isdown_d;
 			bool btn_isdown_up;
 			bool btn_isdown_down;
 			bool btn_isdown_left;
@@ -93,6 +101,10 @@ struct SDLContext
 		bool btn_isjustpressed[BTN_TYPE_MAX];
 		struct
 		{
+			bool btn_isjustpressed_w;
+			bool btn_isjustpressed_a;
+			bool btn_isjustpressed_s;
+			bool btn_isjustpressed_d;
 			bool btn_isjustpressed_up;
 			bool btn_isjustpressed_down;
 			bool btn_isjustpressed_left;

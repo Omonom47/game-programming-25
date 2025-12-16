@@ -21,6 +21,10 @@ struct Map
     std::vector<Point> room_locations;
 };
 
+struct CAMap{
+    std::unique_ptr<int[]> grid;
+};
+
 bool check_bounds(int x, int y, int width, int height){
     return (x >= 0 && x < width && y >= 0 && y < height);
 }
@@ -109,4 +113,100 @@ Map generate_map(int width, int height, int num_rooms, PRNG* engine){
         }
     }
     return map;
+}
+
+const int WALL = 0;
+const int EMPTY = 1;
+
+int live_neighbors(int* grid, int x, int y, int rows, int cols){
+    int count = 0;
+
+    bool top = y <= 0;
+    bool bottom = y >= rows-1;
+    bool left = x <= 0;
+    bool right = x >= cols-1;
+
+    if (!left && grid[y*cols+x-1] == WALL)
+    {
+        count++;
+    }
+    if (!right && grid[y*cols+x+1] == WALL )
+    {
+        count++;
+    }
+    
+    if (!top)
+    {
+        int above = (y-1)*cols+x;
+        if (grid[above]==WALL)
+            count++;
+        
+        if (!left && grid[above-1] == WALL)
+            count++;
+        
+        if (!right && grid[above+1] == WALL)
+            count++;
+        
+    }
+    
+    if (!bottom)
+    {
+        int below = (y+1)*cols+x;
+        if (grid[below]==WALL)
+            count++;
+        
+        if (!left && grid[below-1] == WALL)
+            count++;
+        
+        if (!right && grid[below+1] == WALL)
+            count++;
+        
+    }
+
+    return count;
+}
+
+void update_grid(int* grid, int wall_threshold,int rows,int cols){
+
+    int updated[rows*cols];
+
+    for (int i = 0; i < rows; i++){
+        for (int j = 0; j < cols; j++)
+        {
+            int live = live_neighbors(grid, j, i, rows, cols);
+            if (live >= wall_threshold)
+                updated[i*rows+j] = WALL;
+            else
+                updated[i*rows+j] = EMPTY;
+        } 
+    }
+
+    for (int i = 0; i < rows; i++){
+        for (int j = 0; j < cols; j++)
+        {
+            grid[i*rows+j] = updated[i*rows+j];
+        }
+    }
+}
+
+void generate_map_cellular_automata(int* grid, int iterations, int wall_threshold, int rows, int cols, PRNG* engine){
+
+    // Setup random grid
+    for (int i = 0; i < rows; i++){
+        for (int j = 0; j < cols; j++)
+        {
+            if (is_odd(random_up_to(10,engine)))
+                grid[i*cols+j] = WALL;
+            else
+                grid[i*cols+j] = EMPTY;
+        }
+    }
+
+    for (int i = 0; i < iterations; i++)
+    {
+        update_grid(grid, wall_threshold,rows,cols);
+    }
+
+    // TODO: post processing of the generated grid
+    
 }

@@ -825,81 +825,81 @@ static void game_reset(SDLContext* context)
 	std::vector<vec2f> enemy_placements;
 	//tilemap
 	{
-		Map map = generate_map(10, 10, 10, context->prng);
-		Room room = generate_room_matrix_from_file("../exam_project/room_templates/simple_room.txt");
+		// TODO: place player on empty tile
+
+		int rows = 50; 
+		int cols = 50;
+		int* map = new int[rows * cols];
+		generate_map_cellular_automata(map, 2,5, rows, cols,context->prng);
 		
-		Point start_room = map.room_locations.at(0);
-		context->player_start_position = room_coordinate_to_world_position(start_room.x, start_room.y, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
+		ITU_EntityId id_tilemap = itu_entity_create();
+		itu_entity_set_debug_name(id_tilemap, "tilemap");
 		
-		for (Point room_loc : map.room_locations){
-			ITU_EntityId id_tilemap = itu_entity_create();
-			itu_entity_set_debug_name(id_tilemap, "tilemap");
-			
-			Tilemap tilemap; 
-			
-			tilemap.num_cols = room.num_cols;
-			tilemap.num_rows = room.num_rows;
-			tilemap.tile_ids = room.tiles;
-			tilemap.texture = texture_tiles;
-			tilemap.tile_size = 16;
-			tilemap.pivot = { 0.5f, 0.5f };
+		Tilemap tilemap; 
 
-			Transform transform = TRANSFORM_DEFAULT;
-			transform.scale = vec2f { 1.0f, 1.0f };
-			transform.position  = room_coordinate_to_world_position(room_loc.x, room_loc.y, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
-			
-			entity_add_component(id_tilemap, Transform, transform);
-			entity_add_component(id_tilemap, Tilemap , tilemap);
-			int enemies_placed = 0;
-			// player vs tile collision detection
-			for (int r = 0; r < room.num_rows; ++r) {
+		tilemap.num_cols = cols;
+		tilemap.num_rows = rows;
+		tilemap.tile_ids = map;
+		tilemap.texture = texture_tiles;
+		tilemap.tile_size = 16;
+		tilemap.pivot = { 0.5f, 0.5f };
+		
+		Transform transform = TRANSFORM_DEFAULT;
+		transform.scale = vec2f { 1.0f, 1.0f };
+		transform.position  = room_coordinate_to_world_position(0, 0, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
 
-				for(int c = 0; c < room.num_cols; ++c) {
-					int idx = r * room.num_cols + c;
-					int tile_id = tilemap.tile_ids[idx];
+		entity_add_component(id_tilemap, Transform, transform);
+		entity_add_component(id_tilemap, Tilemap , tilemap);
 
-					vec2f tile_position;
-					std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(&tilemap, &transform, c, r, 0);
-					if(!is_solid_tile(tile_id)){
-						if(enemies_placed >= MAX_ENEMIES_PER_ROOM || is_same_room(room_loc,start_room)){
-							continue;
-						}
-						uint32_t place = random_up_to(100,context->prng);
-						if(place < 2){
-							enemies_placed++;
-							enemy_placements.push_back(tile_position);
-						}
-					} else {
-						int width = 1;
-						while (c + width < room.num_cols && is_solid_tile(tilemap.tile_ids[idx + width])) ++width;
-				
-						ITU_EntityId row_id = itu_entity_create();
-						itu_entity_set_debug_name(row_id, "tile-collider");
+		int enemies_placed = 0;
+		// player vs tile collision detection
+		for (int r = 0; r < rows; ++r) {
 
-						b2BodyDef tile_body_def = b2DefaultBodyDef();
-						tile_body_def.userData = value_cast(void*, row_id);
-						tile_body_def.type = b2_staticBody;
+			for(int c = 0; c < cols; ++c) {
+				int idx = r * cols + c;
+				int tile_id = tilemap.tile_ids[idx];
 
-						//Calculate center of rectangle
-						float row_end_x = tile_position.x + width;
-						tile_body_def.position = b2Vec2 { (tile_position.x + row_end_x) * 0.5f - 0.5f, tile_position.y};
-
-						b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, row_id), &tile_body_def);
-						b2ShapeDef shape_def = b2DefaultShapeDef();
-						shape_def.enableContactEvents = false;
-						shape_def.filter.categoryBits = WALLS;
-						b2Polygon box = b2MakeBox(width * 0.5f, 0.5f);
-						
-						ShapeData shape_data = { 0 };
-						shape_data.shape_id = b2CreatePolygonShape(body_id, &shape_def, &box);
-						entity_add_component(row_id, ShapeData, shape_data);
-
-						//Skip consumed
-						c += (width - 1);
+				vec2f tile_position;
+				std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(&tilemap, &transform, c, r, 0);
+				if(!is_solid_tile(tile_id)){
+					if(enemies_placed >= MAX_ENEMIES_PER_ROOM ){ // TODO: fix enemy placement
+						continue;
 					}
+					uint32_t place = random_up_to(100,context->prng);
+					if(place < 2){
+						enemies_placed++;
+						enemy_placements.push_back(tile_position);
+					}
+				} else {
+					int width = 1;
+					while (c + width < cols && is_solid_tile(tilemap.tile_ids[idx + width])) ++width;
+			
+					ITU_EntityId row_id = itu_entity_create();
+					itu_entity_set_debug_name(row_id, "tile-collider");
 
-							
+					b2BodyDef tile_body_def = b2DefaultBodyDef();
+					tile_body_def.userData = value_cast(void*, row_id);
+					tile_body_def.type = b2_staticBody;
+
+					//Calculate center of rectangle
+					float row_end_x = tile_position.x + width;
+					tile_body_def.position = b2Vec2 { (tile_position.x + row_end_x) * 0.5f - 0.5f, tile_position.y};
+
+					b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, row_id), &tile_body_def);
+					b2ShapeDef shape_def = b2DefaultShapeDef();
+					shape_def.enableContactEvents = false;
+					shape_def.filter.categoryBits = WALLS;
+					b2Polygon box = b2MakeBox(width * 0.5f, 0.5f);
+					
+					ShapeData shape_data = { 0 };
+					shape_data.shape_id = b2CreatePolygonShape(body_id, &shape_def, &box);
+					entity_add_component(row_id, ShapeData, shape_data);
+
+					//Skip consumed
+					c += (width - 1);
 				}
+
+						
 			}
 		}
 			

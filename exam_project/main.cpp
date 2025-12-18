@@ -26,7 +26,7 @@ struct Tilemap
 	int          num_rows;
 	int          num_cols;
 	int          tile_size; // in pixels
-	int*		 tile_ids;  // array of arrays [num_rows][num_cols]
+	int* tile_ids;  // array of arrays [num_rows][num_cols]
 
 };
 
@@ -148,7 +148,8 @@ void create_goal(SDLContext* context, vec2f position)
     physics_data.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
 
 	b2ShapeDef shape_def = b2DefaultShapeDef();
-    shape_def.isSensor = true;
+    shape_def.isSensor = false;
+	shape_def.enableContactEvents = true;
     shape_def.filter.categoryBits = GOAL; 
     shape_def.filter.maskBits = PLAYER;
     b2Polygon box = b2MakeBox(0.4f, 0.4f); // TODO: change size?
@@ -169,7 +170,7 @@ void create_goal(SDLContext* context, vec2f position)
 // =============================================================
 
 static std::vector<vec2f> valid_spawn_locations;
-const int TARGET_ENEMY_COUNT = 40;
+const int TARGET_ENEMY_COUNT = 50;
 const float SPAWN_DISTANCE_FROM_PLAYER = 20.0f;
 
 void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture) 
@@ -416,6 +417,8 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 			b2ContactData contact_data = contactData[j];
 			b2ShapeId other_id = (contact_data.shapeIdA.index1 == shape_id.index1) ? contact_data.shapeIdB : contact_data.shapeIdA;
 			b2Filter filter = b2Shape_GetFilter(other_id);
+
+			printf("Hit entity with CategoryBits: %d\n", filter.categoryBits);
 			
 			// Handle collision with goal
 			if (filter.categoryBits & GOAL) {
@@ -547,6 +550,11 @@ void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int en
 	
 }
 
+float lerp_smooth(float a, float b, float f)
+{
+	return a + f * (b - a);
+}
+
 void system_camera_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	for(int i = 0; i < entity_ids_count; ++i)
@@ -554,7 +562,16 @@ void system_camera_target(SDLContext* context, ITU_EntityId* entity_ids, int ent
 		ITU_EntityId id = entity_ids[i];
 		Transform* transform = entity_get_data(id, Transform);
 
-		context->camera_active->world_position = transform->position;
+		// Lerp camera position to target position
+		float lerp_factor = 15.0f * context->delta;
+
+		vec2f current_camera_pos = context->camera_active->world_position;
+		vec2f target_camera_pos = transform->position;
+
+		vec2f new_pos;
+		new_pos.x = lerp_smooth(current_camera_pos.x, target_camera_pos.x, lerp_factor);
+		new_pos.y = lerp_smooth(current_camera_pos.y, target_camera_pos.y, lerp_factor);
+		context->camera_active->world_position = new_pos;
 	}
 }
 
@@ -1052,6 +1069,7 @@ static void game_reset(SDLContext* context)
 		itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(0, 8, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 
 		PlayerData data = { 0 };
+		data.rotation = vec2f{ 0.0f, 1.0f };
 
 		PhysicsData physics_data = { 0 };
 		physics_data.ignore_rotation = true;
@@ -1082,6 +1100,11 @@ static void game_reset(SDLContext* context)
 		entity_add_component(id_player, ShapeData     , shape_data);
 		entity_add_component(id_player, Health        , player_health);
 		itu_entity_tag_add(id_player, TAG_CAMERA_TARGET);
+
+		// Set camera to player
+		if (context->camera_active) {
+			context->camera_active->world_position = transform.position;
+		}
 	}
 
 	// bullets

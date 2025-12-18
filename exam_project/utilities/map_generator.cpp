@@ -200,3 +200,7 @@ void generate_map_cellular_automata(int* grid, int iterations, int wall_threshol
     // TODO: post processing of the generated grid
     
 }
+
+void keep_largest_open_area(int* grid, int rows, int cols) {
+   
+}

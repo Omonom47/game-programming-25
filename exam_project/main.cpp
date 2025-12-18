@@ -15,6 +15,7 @@ enum Tags
 {
 	TAG_CAMERA_TARGET,
 	TAG_ENEMY
+	
 };
 
 struct Tilemap
@@ -120,6 +121,79 @@ const int tile_mapping[] = {
 
 const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
 const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
+
+// =============================================================
+// Enemy and player placement
+// =============================================================
+
+static std::vector<vec2f> valid_spawn_locations;
+const int TARGET_ENEMY_COUNT = 40;
+const float SPAWN_DISTANCE_FROM_PLAYER = 20.0f;
+
+void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture) 
+{
+	ITU_EntityId enemy_id = itu_entity_create();
+    itu_entity_set_debug_name(enemy_id, "enemy");
+    Transform transform = TRANSFORM_DEFAULT;
+    transform.position = position;
+
+	Sprite sprite;
+	itu_lib_sprite_init(&sprite, texture, itu_lib_sprite_get_rect(0, 9, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
+
+	PhysicsData physics_data = { 0 };
+    physics_data.ignore_rotation = true;
+
+	b2BodyDef body_def = b2DefaultBodyDef();
+    body_def.userData = value_cast(void*, enemy_id);
+    body_def.type = b2_dynamicBody;
+    b2Circle circle = { 0 };
+    circle.radius = 0.25f;
+    body_def.position = value_cast(b2Vec2, transform.position);
+    physics_data.body_id = itu_sys_physics_add_body(value_cast(void*, enemy_id), &body_def);
+
+    b2ShapeDef shape_def = b2DefaultShapeDef();
+    shape_def.enableContactEvents = true;
+    shape_def.filter.categoryBits = ENEMIES;
+    shape_def.filter.maskBits = PLAYER | BULLETS | WALLS;
+    ShapeData shape_data;
+    shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
+
+    EnemyData ed = { 0 };
+    ed.curr_speed_linear = 4;
+    Health enemy_health = { 3, 3 };
+
+    entity_add_component(enemy_id, Transform, transform);
+    entity_add_component(enemy_id, PhysicsData, physics_data);
+    entity_add_component(enemy_id, ShapeData, shape_data);
+    entity_add_component(enemy_id, EnemyData, ed);
+    entity_add_component(enemy_id, Sprite, sprite);
+    entity_add_component(enemy_id, Health, enemy_health);
+    itu_entity_tag_add(enemy_id, TAG_ENEMY);
+}
+
+void system_enemy_spawner(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count) 
+{
+	if (entity_ids_count < TARGET_ENEMY_COUNT) {
+		printf("Spawning enemy, current count: %d\n", entity_ids_count);
+
+		// Get player position
+		Transform* player_transform = entity_get_data(id_player, Transform);
+		vec2f player_position = player_transform->position;
+
+		int idx = random_up_to((int)valid_spawn_locations.size(), context->prng);
+		vec2f spawn_position = valid_spawn_locations[idx];
+
+		// Check if spawn position is far enough from player, only spawn if it is
+		float dist_sq = distance_sq(player_position, spawn_position);
+		float min_dist_sq = SPAWN_DISTANCE_FROM_PLAYER * SPAWN_DISTANCE_FROM_PLAYER;
+
+		if (dist_sq >= min_dist_sq) {
+			SDL_Texture* texture_enemy = itu_sys_rstorage_texture_get_ptr(0);
+			create_enemy(context, spawn_position, texture_enemy);
+		}
+
+	}
+}
 
 // =============================================================
 // UI methods
@@ -805,6 +879,7 @@ static void game_init(SDLContext* context)
 	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0, false);
 	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0, false);
 	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
+	add_system(system_enemy_spawner, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
 }
 
 static void game_reset(SDLContext* context)
@@ -822,15 +897,15 @@ static void game_reset(SDLContext* context)
 
 	SDL_assert(ENTITY_COUNT <= ENTITIES_COUNT_MAX);
 
-	std::vector<vec2f> enemy_placements;
 	//tilemap
 	{
-		// TODO: place player on empty tile
+		// Clear previous valid spawn locations
+		valid_spawn_locations.clear();
 
-			int rows = 100; 
-			int cols = 100;
-			int* map = new int[rows * cols];
-			generate_map_cellular_automata(map, 12, 45, rows, cols, context->prng);
+		int rows = 100; 
+		int cols = 100;
+		int* map = new int[rows * cols];
+		generate_map_cellular_automata(map, 12, 45, rows, cols, context->prng);
 		
 		ITU_EntityId id_tilemap = itu_entity_create();
 		itu_entity_set_debug_name(id_tilemap, "tilemap");
@@ -851,10 +926,8 @@ static void game_reset(SDLContext* context)
 		entity_add_component(id_tilemap, Transform, transform);
 		entity_add_component(id_tilemap, Tilemap , tilemap);
 
-		int enemies_placed = 0;
 		// player vs tile collision detection
 		for (int r = 0; r < rows; ++r) {
-
 			for(int c = 0; c < cols; ++c) {
 				int idx = r * cols + c;
 				int tile_id = tilemap.tile_ids[idx];
@@ -862,15 +935,10 @@ static void game_reset(SDLContext* context)
 				vec2f tile_position;
 				std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(&tilemap, &transform, c, r, 0);
 				if(!is_solid_tile(tile_id)){
-					if(enemies_placed >= MAX_ENEMIES_PER_ROOM ){ // TODO: fix enemy placement
-						continue;
-					}
-					uint32_t place = random_up_to(100,context->prng);
-					if(place < 2){
-						enemies_placed++;
-						enemy_placements.push_back(tile_position);
-					}
-				} else {
+					valid_spawn_locations.push_back(tile_position);
+				}
+				else {
+					//Create colliders by merging horizontal tiles
 					int width = 1;
 					while (c + width < cols && is_solid_tile(tilemap.tile_ids[idx + width])) ++width;
 			
@@ -902,53 +970,15 @@ static void game_reset(SDLContext* context)
 						
 			}
 		}
+
+		// Place player on random valid spawn location
+		if (!valid_spawn_locations.empty()) {
+			int random_idx = random_up_to((int)valid_spawn_locations.size(), context->prng);
+			context->player_start_position = valid_spawn_locations[random_idx];
+		}
 			
 	}
 	
-	
-	// Enemies
-	{
-		for(vec2f pos : enemy_placements){
-			ITU_EntityId enemy_id = itu_entity_create();
-			itu_entity_set_debug_name(enemy_id, "enemy");
-			Transform transform = TRANSFORM_DEFAULT;
-			transform.position = pos;
-
-			Sprite sprite;
-			itu_lib_sprite_init(&sprite,texture_tiles,itu_lib_sprite_get_rect(0,9,TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
-
-			PhysicsData physics_data = { 0 };
-			physics_data.ignore_rotation = true;
-
-			b2BodyDef body_def = b2DefaultBodyDef();
-			body_def.userData = value_cast(void*, enemy_id);
-			body_def.type = b2_dynamicBody;
-			b2Circle circle = { 0 };
-			circle.radius = 0.25f;	
-			body_def.position = value_cast(b2Vec2,transform.position);
-			physics_data.body_id = itu_sys_physics_add_body(value_cast(void*, enemy_id), &body_def);
-
-			b2ShapeDef shape_def = b2DefaultShapeDef();
-			shape_def.enableContactEvents = true;
-			shape_def.filter.categoryBits = ENEMIES;
-			shape_def.filter.maskBits = PLAYER | BULLETS | WALLS;
-			ShapeData shape_data;
-			shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
-
-			EnemyData ed = { 0 };
-			ed.curr_speed_linear = 4;
-			Health enemy_health = { 3, 3 };
-
-			entity_add_component(enemy_id, Transform, transform);
-			entity_add_component(enemy_id, PhysicsData, physics_data);
-			entity_add_component(enemy_id, ShapeData, shape_data);
-			entity_add_component(enemy_id, EnemyData, ed);
-			entity_add_component(enemy_id, Sprite, sprite);
-			entity_add_component(enemy_id, Health, enemy_health);
-			itu_entity_tag_add(enemy_id,TAG_ENEMY);
-		}	
-	}
-
 	// player
 	{
 		id_player = itu_entity_create();

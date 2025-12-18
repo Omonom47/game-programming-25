@@ -2,8 +2,7 @@
 #include <itu_common.hpp>
 #endif
 
-struct Point
-{
+struct Point{
     int x;
     int y;
 };
@@ -149,8 +148,8 @@ void update_grid(int* grid, int wall_threshold,int rows,int cols){
 
     std::vector<int> updated(rows*cols); // Changed due to compiler complaining
 
-    const int SURVIVAL_THRESHOLD = 5; // Wall stays wall if it has 5 more wall neighbors
-    const int BIRTH_THRESHOLD = 4; // Empty becomes wall if it has 4 or more wall neighbors
+    const int SURVIVAL_THRESHOLD = 4; // Wall stays wall if it has 4 more wall neighbors
+    const int BIRTH_THRESHOLD = 5; // Empty becomes wall if it has 5 or more wall neighbors
 
 
     for (int i = 0; i < rows; i++){

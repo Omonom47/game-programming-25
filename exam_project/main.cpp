@@ -14,7 +14,8 @@ float design_speed_rotational;
 enum Tags
 {
 	TAG_CAMERA_TARGET,
-	TAG_ENEMY
+	TAG_ENEMY,
+	TAG_GOAL
 	
 };
 
@@ -123,6 +124,47 @@ const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
 const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
 
 // =============================================================
+// 	Goal post placement
+// =============================================================
+
+void create_goal(SDLContext* context, vec2f position)
+{
+	printf("Creating goal at position: (%f, %f)\n", position.x, position.y);
+	ITU_EntityId id = itu_entity_create();
+	itu_entity_set_debug_name(id, "goal");
+
+	Transform transform = TRANSFORM_DEFAULT;
+	transform.position = position;
+
+	Sprite sprite;
+	SDL_Texture* texture = itu_sys_rstorage_texture_get_ptr(0);
+    itu_lib_sprite_init(&sprite, texture, itu_lib_sprite_get_rect(5, 10, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
+	sprite.tint = COLOR_GREEN;
+
+	PhysicsData physics_data = {0};
+	b2BodyDef body_def = b2DefaultBodyDef();
+	body_def.type = b2_staticBody;
+    body_def.position = value_cast(b2Vec2, position);
+    physics_data.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
+
+	b2ShapeDef shape_def = b2DefaultShapeDef();
+    shape_def.isSensor = true;
+    shape_def.filter.categoryBits = GOAL; 
+    shape_def.filter.maskBits = PLAYER;
+    b2Polygon box = b2MakeBox(0.4f, 0.4f); // TODO: change size?
+
+	ShapeData shape_data;
+	shape_data.shape_id = b2CreatePolygonShape(physics_data.body_id, &shape_def, &box);
+
+	entity_add_component(id, Transform, transform);
+    entity_add_component(id, Sprite, sprite);
+    entity_add_component(id, PhysicsData, physics_data);
+    entity_add_component(id, ShapeData, shape_data);
+    itu_entity_tag_add(id, TAG_GOAL);
+
+}
+
+// =============================================================
 // Enemy and player placement
 // =============================================================
 
@@ -174,7 +216,6 @@ void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture)
 void system_enemy_spawner(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count) 
 {
 	if (entity_ids_count < TARGET_ENEMY_COUNT) {
-		printf("Spawning enemy, current count: %d\n", entity_ids_count);
 
 		// Get player position
 		Transform* player_transform = entity_get_data(id_player, Transform);
@@ -375,6 +416,13 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 			b2ContactData contact_data = contactData[j];
 			b2ShapeId other_id = (contact_data.shapeIdA.index1 == shape_id.index1) ? contact_data.shapeIdB : contact_data.shapeIdA;
 			b2Filter filter = b2Shape_GetFilter(other_id);
+			
+			// Handle collision with goal
+			if (filter.categoryBits & GOAL) {
+				printf("Player reached the goal! You win!\n");
+				context->game_over = true;
+				return;
+			}
 
 			// Handle collision with enemies
 			if (filter.categoryBits & ENEMIES) {
@@ -976,7 +1024,21 @@ static void game_reset(SDLContext* context)
 			int random_idx = random_up_to((int)valid_spawn_locations.size(), context->prng);
 			context->player_start_position = valid_spawn_locations[random_idx];
 		}
-			
+		
+		// Goal post placement (farthest point from player)
+		if (!valid_spawn_locations.empty()) {
+			vec2f goal_position = VEC2F_ZERO;
+			float max_dist_sq = -1.0f;
+
+			for (const auto& pos : valid_spawn_locations) {
+				float distance = distance_sq(context->player_start_position, pos);
+				if (distance > max_dist_sq) {
+					max_dist_sq = distance;
+					goal_position = pos;
+				}
+			}
+			create_goal(context, goal_position);
+		}
 	}
 	
 	// player
@@ -1003,7 +1065,7 @@ static void game_reset(SDLContext* context)
 		b2ShapeDef shape_def = b2DefaultShapeDef();
 		shape_def.enableContactEvents = true;
 		shape_def.filter.categoryBits = PLAYER;
-		shape_def.filter.maskBits = ENEMIES | WALLS;
+		shape_def.filter.maskBits = ENEMIES | WALLS | GOAL;
 		b2Circle circle = { 0 };
 		circle.radius = 0.25f;
 		shape_def.isSensor = false;

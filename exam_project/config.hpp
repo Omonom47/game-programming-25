@@ -37,5 +37,6 @@ enum CollisionCategories{
     PLAYER = 0b00001,
     BULLETS = 0b00010,
     ENEMIES = 0b00100,
-    WALLS = 0b01000
+    WALLS = 0b01000,
+    GOAL = 0b10000
 };

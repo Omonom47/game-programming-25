@@ -827,10 +827,10 @@ static void game_reset(SDLContext* context)
 	{
 		// TODO: place player on empty tile
 
-		int rows = 50; 
-		int cols = 50;
-		int* map = new int[rows * cols];
-		generate_map_cellular_automata(map, 2,5, rows, cols,context->prng);
+			int rows = 100; 
+			int cols = 100;
+			int* map = new int[rows * cols];
+			generate_map_cellular_automata(map, 12, 45, rows, cols, context->prng);
 		
 		ITU_EntityId id_tilemap = itu_entity_create();
 		itu_entity_set_debug_name(id_tilemap, "tilemap");

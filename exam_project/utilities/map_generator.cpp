@@ -118,74 +118,65 @@ Map generate_map(int width, int height, int num_rooms, PRNG* engine){
 const int WALL = 0;
 const int EMPTY = 1;
 
+bool is_out_of_bounds(int x, int y, int rows, int cols){
+    return x < 0 || x >= cols || y < 0 || y >= rows; 
+}
+
 int live_neighbors(int* grid, int x, int y, int rows, int cols){
     int count = 0;
 
-    bool top = y <= 0;
-    bool bottom = y >= rows-1;
-    bool left = x <= 0;
-    bool right = x >= cols-1;
+     // Check all 8 neightbors
+    for (int i = -1; i <= 1; ++i) {
+        for (int j = -1; j <= 1; ++j) {
+            if (i == 0 && j == 0) continue; // Skip self
 
-    if (!left && grid[y*cols+x-1] == WALL)
-    {
-        count++;
+            int neighbor_x = x + j;
+            int neighbor_y = y + i;
+            
+            // Concider out of bound cells as wall
+            if (is_out_of_bounds(neighbor_x, neighbor_y, rows, cols)) {
+                count++; 
+            } // Otherwise check if neighbor is wall
+            else if (grid[neighbor_y * cols + neighbor_x] == WALL) {
+            count++;
+            }
+        }
     }
-    if (!right && grid[y*cols+x+1] == WALL )
-    {
-        count++;
-    }
-    
-    if (!top)
-    {
-        int above = (y-1)*cols+x;
-        if (grid[above]==WALL)
-            count++;
-        
-        if (!left && grid[above-1] == WALL)
-            count++;
-        
-        if (!right && grid[above+1] == WALL)
-            count++;
-        
-    }
-    
-    if (!bottom)
-    {
-        int below = (y+1)*cols+x;
-        if (grid[below]==WALL)
-            count++;
-        
-        if (!left && grid[below-1] == WALL)
-            count++;
-        
-        if (!right && grid[below+1] == WALL)
-            count++;
-        
-    }
-
     return count;
 }
 
 void update_grid(int* grid, int wall_threshold,int rows,int cols){
 
-    int updated[rows*cols];
+    std::vector<int> updated(rows*cols); // Changed due to compiler complaining
+
+    const int SURVIVAL_THRESHOLD = 5; // Wall stays wall if it has 5 more wall neighbors
+    const int BIRTH_THRESHOLD = 4; // Empty becomes wall if it has 4 or more wall neighbors
+
 
     for (int i = 0; i < rows; i++){
-        for (int j = 0; j < cols; j++)
-        {
+        for (int j = 0; j < cols; j++){
+
             int live = live_neighbors(grid, j, i, rows, cols);
-            if (live >= wall_threshold)
-                updated[i*rows+j] = WALL;
-            else
-                updated[i*rows+j] = EMPTY;
+            int idx = i*cols+j;
+            int cell = grid[idx];
+
+            if (cell == WALL){
+                if (live >= SURVIVAL_THRESHOLD)
+                    updated[idx] = WALL;
+                else
+                    updated[idx] = EMPTY;
+            } else {
+                if (live >= BIRTH_THRESHOLD)
+                    updated[idx] = WALL;
+                else
+                    updated[idx] = EMPTY;
+            }
         } 
     }
 
-    for (int i = 0; i < rows; i++){
-        for (int j = 0; j < cols; j++)
-        {
-            grid[i*rows+j] = updated[i*rows+j];
-        }
+    // Apply updates to the original grid
+    for (int i = 0; i < rows * cols; i++) {
+        grid[i] = updated[i];
     }
 }
 
@@ -195,7 +186,7 @@ void generate_map_cellular_automata(int* grid, int iterations, int wall_threshol
     for (int i = 0; i < rows; i++){
         for (int j = 0; j < cols; j++)
         {
-            if (is_odd(random_up_to(10,engine)))
+            if (random_up_to(100, engine) < wall_threshold)
                 grid[i*cols+j] = WALL;
             else
                 grid[i*cols+j] = EMPTY;

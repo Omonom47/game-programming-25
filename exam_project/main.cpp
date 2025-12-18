@@ -417,12 +417,9 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 			b2ContactData contact_data = contactData[j];
 			b2ShapeId other_id = (contact_data.shapeIdA.index1 == shape_id.index1) ? contact_data.shapeIdB : contact_data.shapeIdA;
 			b2Filter filter = b2Shape_GetFilter(other_id);
-
-			printf("Hit entity with CategoryBits: %d\n", filter.categoryBits);
 			
 			// Handle collision with goal
 			if (filter.categoryBits & GOAL) {
-				printf("Player reached the goal! You win!\n");
 				context->game_over = true;
 				return;
 			}

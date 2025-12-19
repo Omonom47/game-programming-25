@@ -26,10 +26,8 @@ struct Tilemap
 	int          num_rows;
 	int          num_cols;
 	int          tile_size; // in pixels
-	int* tile_ids;  // array of arrays [num_rows][num_cols]
-
+	int* tile_ids;  // [num_rows][num_cols]
 };
-
 register_component(Tilemap)
 
 struct PlayerData
@@ -114,6 +112,10 @@ register_component(ShooterData)
 static ITU_EntityId id_player;
 
 static TTF_TextEngine* ttf_engine;
+
+static const int tilemap_count = 5;
+static ITU_EntityId tilemaps[tilemap_count];
+static bool is_tilemaps_filled = false;
 
 const int tile_mapping[] = {
 	40, // wall 
@@ -341,6 +343,18 @@ void destroyEntitiesScheduled() {
 		
 	}
 	bodiesScheduleForDeletion.clear();
+}
+
+void free_map(){
+	if (!is_tilemaps_filled)
+		return;
+	
+	for (int i = 0; i < tilemap_count; i++)
+	{
+		Tilemap* tilemap = entity_get_data(tilemaps[i], Tilemap);
+		free(tilemap->tile_ids);
+	}
+	is_tilemaps_filled = false;
 }
 
 // ============================================================================================
@@ -951,6 +965,7 @@ static void game_reset(SDLContext* context)
 	SDL_Texture* texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);
 	TTF_Font* font_bold = itu_sys_rstorage_font_get_ptr(0);
 
+	free_map();
 	itu_sys_estorage_clear_all_entities();
 
 	b2WorldDef world_def = b2DefaultWorldDef();
@@ -959,79 +974,91 @@ static void game_reset(SDLContext* context)
 
 	SDL_assert(ENTITY_COUNT <= ENTITIES_COUNT_MAX);
 
-	//tilemap
+	//tilemaps
 	{
 		// Clear previous valid spawn locations
 		valid_spawn_locations.clear();
 
-		int rows = 100; 
-		int cols = 100;
-		int* map = new int[rows * cols];
-		generate_map_cellular_automata(map, 12, 45, rows, cols, context->prng);
 		
-		ITU_EntityId id_tilemap = itu_entity_create();
-		itu_entity_set_debug_name(id_tilemap, "tilemap");
+		Map map_layout = generate_map(4,4,tilemap_count,context->prng);
+
+		const int rows = 30; 
+		const int cols = 30;
+		size_t size = rows * cols;
+		int cur_map = 0;
+
+		for(const auto& location : map_layout.room_locations){
 		
-		Tilemap tilemap; 
-
-		tilemap.num_cols = cols;
-		tilemap.num_rows = rows;
-		tilemap.tile_ids = map;
-		tilemap.texture = texture_tiles;
-		tilemap.tile_size = 16;
-		tilemap.pivot = { 0.5f, 0.5f };
-		
-		Transform transform = TRANSFORM_DEFAULT;
-		transform.scale = vec2f { 1.0f, 1.0f };
-		transform.position  = room_coordinate_to_world_position(0, 0, ROOM_NUM_TILES_X, ROOM_NUM_TILES_Y);
-
-		entity_add_component(id_tilemap, Transform, transform);
-		entity_add_component(id_tilemap, Tilemap , tilemap);
-
-		// player vs tile collision detection
-		for (int r = 0; r < rows; ++r) {
-			for(int c = 0; c < cols; ++c) {
-				int idx = r * cols + c;
-				int tile_id = tilemap.tile_ids[idx];
-
-				vec2f tile_position;
-				std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(&tilemap, &transform, c, r, 0);
-				if(!is_solid_tile(tile_id)){
-					valid_spawn_locations.push_back(tile_position);
-				}
-				else {
-					//Create colliders by merging horizontal tiles
-					int width = 1;
-					while (c + width < cols && is_solid_tile(tilemap.tile_ids[idx + width])) ++width;
+			ITU_EntityId id_tilemap = itu_entity_create();
+			tilemaps[cur_map++] = id_tilemap;
+			itu_entity_set_debug_name(id_tilemap, "tilemap");
 			
-					ITU_EntityId row_id = itu_entity_create();
-					itu_entity_set_debug_name(row_id, "tile-collider");
-
-					b2BodyDef tile_body_def = b2DefaultBodyDef();
-					tile_body_def.userData = value_cast(void*, row_id);
-					tile_body_def.type = b2_staticBody;
-
-					//Calculate center of rectangle
-					float row_end_x = tile_position.x + width;
-					tile_body_def.position = b2Vec2 { (tile_position.x + row_end_x) * 0.5f - 0.5f, tile_position.y};
-
-					b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, row_id), &tile_body_def);
-					b2ShapeDef shape_def = b2DefaultShapeDef();
-					shape_def.enableContactEvents = false;
-					shape_def.filter.categoryBits = WALLS;
-					b2Polygon box = b2MakeBox(width * 0.5f, 0.5f);
-					
-					ShapeData shape_data = { 0 };
-					shape_data.shape_id = b2CreatePolygonShape(body_id, &shape_def, &box);
-					entity_add_component(row_id, ShapeData, shape_data);
-
-					//Skip consumed
-					c += (width - 1);
-				}
-
+			Tilemap tilemap; 
+			
+			tilemap.num_cols = cols;
+			tilemap.num_rows = rows;
+			tilemap.tile_ids = new int[size];
+			generate_map_cellular_automata(tilemap.tile_ids, 12, 45, rows, cols, context->prng);
+			tilemap.texture = texture_tiles;
+			tilemap.tile_size = 16;
+			tilemap.pivot = { 0.5f, 0.5f };
+			
+			Transform transform = TRANSFORM_DEFAULT;
+			transform.scale = vec2f { 1.0f, 1.0f };
+			transform.position  = room_coordinate_to_world_position(location.x, location.y, rows, cols);
+	
+			entity_add_component(id_tilemap, Transform, transform);
+			entity_add_component(id_tilemap, Tilemap, tilemap);
+	
+			// player vs tile collision detection
+			for (int r = 0; r < rows; ++r) {
+				for(int c = 0; c < cols; ++c) {
+					int idx = r * cols + c;
+					int tile_id = tilemap.tile_ids[idx];
+	
+					vec2f tile_position;
+					std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(&tilemap, &transform, c, r, 0);
+					if(!is_solid_tile(tile_id)){
+						valid_spawn_locations.push_back(tile_position);
+					}
+					else {
+						//Create colliders by merging horizontal tiles
+						int width = 1;
+						while (c + width < cols && is_solid_tile(tilemap.tile_ids[idx + width])) ++width;
+				
+						ITU_EntityId row_id = itu_entity_create();
+						itu_entity_set_debug_name(row_id, "tile-collider");
+	
+						b2BodyDef tile_body_def = b2DefaultBodyDef();
+						tile_body_def.userData = value_cast(void*, row_id);
+						tile_body_def.type = b2_staticBody;
+	
+						//Calculate center of rectangle
+						float row_end_x = tile_position.x + width;
+						tile_body_def.position = b2Vec2 { (tile_position.x + row_end_x) * 0.5f - 0.5f, tile_position.y};
+	
+						b2BodyId body_id = itu_sys_physics_add_body(value_cast(void*, row_id), &tile_body_def);
+						b2ShapeDef shape_def = b2DefaultShapeDef();
+						shape_def.enableContactEvents = false;
+						shape_def.filter.categoryBits = WALLS;
+						b2Polygon box = b2MakeBox(width * 0.5f, 0.5f);
 						
+						ShapeData shape_data = { 0 };
+						shape_data.shape_id = b2CreatePolygonShape(body_id, &shape_def, &box);
+						entity_add_component(row_id, ShapeData, shape_data);
+	
+						//Skip consumed
+						c += (width - 1);
+					}
+	
+							
+				}
 			}
+
+
 		}
+
+		is_tilemaps_filled = true;
 
 		// Place player on random valid spawn location
 		if (!valid_spawn_locations.empty()) {
@@ -1160,56 +1187,56 @@ static void game_reset(SDLContext* context)
 
 	// healthbar
 	{
-	ITU_EntityId id = itu_entity_create();
-	itu_entity_set_debug_name(id, "Player-Healthbar");
-	TransformScreen transform = { 0 };
-	transform.scale = VEC2F_ONE;
-	transform.position = { 20, 18 };
+		ITU_EntityId id = itu_entity_create();
+		itu_entity_set_debug_name(id, "Player-Healthbar");
+		TransformScreen transform = { 0 };
+		transform.scale = VEC2F_ONE;
+		transform.position = { 20, 18 };
 
-	Sprite9Patch sprite;
-	sprite.rect = { 0, 0, 96, 16 };
-	sprite.texture = texture_healthbar;
-	sprite.size = { 760, 16 };
-	sprite.margins_hor = { 8, 8 };
-	sprite.margins_ver = { 8, 8 };
-	sprite.pivot.x = 0.0f;
-	sprite.pivot.y = 0.0f;
-	sprite.tint = COLOR_RED;
+		Sprite9Patch sprite;
+		sprite.rect = { 0, 0, 96, 16 };
+		sprite.texture = texture_healthbar;
+		sprite.size = { 760, 16 };
+		sprite.margins_hor = { 8, 8 };
+		sprite.margins_ver = { 8, 8 };
+		sprite.pivot.x = 0.0f;
+		sprite.pivot.y = 0.0f;
+		sprite.tint = COLOR_RED;
 
-	HealthRenderer renderer;
-	renderer.target = id_player;
-	renderer.widget_base_w = sprite.size.x;
+		HealthRenderer renderer;
+		renderer.target = id_player;
+		renderer.widget_base_w = sprite.size.x;
 
-	entity_add_component(id, TransformScreen, transform);
-	entity_add_component(id, Sprite9Patch, sprite);
-	entity_add_component(id, HealthRenderer, renderer);
+		entity_add_component(id, TransformScreen, transform);
+		entity_add_component(id, Sprite9Patch, sprite);
+		entity_add_component(id, HealthRenderer, renderer);
 	}
 
 	// weapon cooldown
 	{
-	ITU_EntityId id = itu_entity_create();
-	itu_entity_set_debug_name(id, "Weapon-Cooldown");
-	TransformScreen transform = { 0 };
-	transform.scale = VEC2F_ONE;
-	transform.position = { 20, 40 };
+		ITU_EntityId id = itu_entity_create();
+		itu_entity_set_debug_name(id, "Weapon-Cooldown");
+		TransformScreen transform = { 0 };
+		transform.scale = VEC2F_ONE;
+		transform.position = { 20, 40 };
 
-	Sprite9Patch sprite;
-	sprite.rect = { 0, 0, 96, 16 };
-	sprite.texture = texture_healthbar;
-	sprite.size = { 190, 16 };
-	sprite.margins_hor = { 8, 8 };
-	sprite.margins_ver = { 8, 8 };
-	sprite.pivot.x = 0.0f;
-	sprite.pivot.y = 0.0f;
-	sprite.tint = COLOR_GREEN;
+		Sprite9Patch sprite;
+		sprite.rect = { 0, 0, 96, 16 };
+		sprite.texture = texture_healthbar;
+		sprite.size = { 190, 16 };
+		sprite.margins_hor = { 8, 8 };
+		sprite.margins_ver = { 8, 8 };
+		sprite.pivot.x = 0.0f;
+		sprite.pivot.y = 0.0f;
+		sprite.tint = COLOR_GREEN;
 
-	CooldownRenderer renderer;
-	renderer.target = id_player;
-	renderer.widget_base_w = sprite.size.x;
+		CooldownRenderer renderer;
+		renderer.target = id_player;
+		renderer.widget_base_w = sprite.size.x;
 
-	entity_add_component(id, TransformScreen, transform);
-	entity_add_component(id, Sprite9Patch, sprite);
-	entity_add_component(id, CooldownRenderer, renderer);
+		entity_add_component(id, TransformScreen, transform);
+		entity_add_component(id, Sprite9Patch, sprite);
+		entity_add_component(id, CooldownRenderer, renderer);
 	}
 
 }
@@ -1302,9 +1329,7 @@ int main(void)
 
 		// render
 		itu_sys_estorage_render_update(&context);
-		if (context.render_debug) itu_sys_physics_debug_draw();
-
-		
+		if (context.render_debug) itu_sys_physics_debug_draw();	
 
 #ifdef ENABLE_DIAGNOSTICS
 		{

@@ -313,13 +313,18 @@ void system_enemy_ai(SDLContext* context, ITU_EntityId* entity_ids, int entity_i
 		vec2f enemy_position = transform->position;
 		vec2f player_position = player_transform->position;
 
-		int magnitude = 7 * 7;
-		if (distance_sq(player_position, enemy_position) < magnitude) {
-			vec2f direction = player_position - enemy_position;
-			vec2f normalized_direction = normalize(direction);
-			physics_data->velocity = normalized_direction * enemy_data->curr_speed_linear;
-			
-		}
+		float distance_squared = distance_sq(player_position, enemy_position);
+		float detection_radius_squared = 7.0f * 7.0f;
+
+		if (distance_squared < detection_radius_squared && distance_squared > 0.001f) {
+            vec2f direction = player_position - enemy_position;
+            vec2f normalized_direction = normalize(direction);
+            physics_data->velocity = normalized_direction * enemy_data->curr_speed_linear;
+        }
+        else {
+            physics_data->velocity = vec2f{0, 0}; 
+        }
+
 	}
 }
 
@@ -784,14 +789,17 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 
 			entity_set_active(bullet_id, true);
 			bd->direction = dirs.size() > 0 ? dirs[j] : direction;
+
+			// Calculate bullet rotation
+			float bullet_angle = atan2(bd->direction.y, bd->direction.x);
+			bt->rotation = bullet_angle - PI_HALF;
 			
 			bd->speed = shooter->weapon.bullet_speed;
 			bd->update_behaviour = shooter->weapon.fn_bullet_behaviour;
 
 			bt->position = transform->position;
 			
-			b2Body_SetTransform(bullet_phys->body_id,value_cast(b2Vec2,bt->position),
-				b2Body_GetRotation(bullet_phys->body_id));
+			b2Body_SetTransform(bullet_phys->body_id,value_cast(b2Vec2,bt->position), b2MakeRot(bt->rotation));
 			
 			start_index++;
 			if(start_index >= shooter->bullet_count){
@@ -863,8 +871,9 @@ static void game_init(SDLContext* context)
 	add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0, true);
 
 	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0, false);
-	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0, false);
 	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);
+	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0, false);
+
 
 	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
 	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0, false);
@@ -896,7 +905,7 @@ static void game_reset(SDLContext* context)
 		Tilemap rooms[tilemap_count];
 		
 
-		Map map = generate_map(rooms, tilemap_count, 4, 4, context->prng);
+		Map map = generate_map(rooms, 4, 4, tilemap_count, context->prng);
 		for(int i = 0; i < tilemap_count; ++i){
 			Point location = map.room_locations[i];
 		
@@ -1083,7 +1092,9 @@ static void game_reset(SDLContext* context)
 			body_def.type = b2_dynamicBody;
 			body_def.position = value_cast(b2Vec2, transform.position);
 			body_def.userData = value_cast(void*, id);
+			body_def.isBullet = true;
 			pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
+			
 
 			ShapeData shape_data;
 			b2ShapeDef shape_def = b2DefaultShapeDef();

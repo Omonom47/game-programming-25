@@ -266,6 +266,7 @@ void keep_largest_open_area(int* grid, int rows, int cols) {
                         grid[neighbor_idx] == EMPTY &&
                         !visited[neighbor_idx]) {
                         q.push({neighbor_x, neighbor_y});
+                        current_area.push_back({neighbor_x,neighbor_y});
                     }
                 }
             }

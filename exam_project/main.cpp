@@ -1047,6 +1047,7 @@ static void game_reset(SDLContext* context)
 		capsule.radius = 0.15f;
 
 		ShooterData shooter;
+		shooter.next_bullet_idx = 0;
 		shooter.bullet_count = BULLET_POOL_SIZE;
 		shooter.weapon = generate_weapon(context->prng);
 		shooter.cooldown_left = 0;

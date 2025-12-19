@@ -81,8 +81,9 @@ void create_goal(SDLContext* context, vec2f position)
 // =============================================================
 
 static std::vector<vec2f> valid_spawn_locations;
-const int TARGET_ENEMY_COUNT = 50;
-const float SPAWN_DISTANCE_FROM_PLAYER = 20.0f;
+static std::vector<vec2f> room_spawn_locations[tilemap_count];
+const int MAX_ENEMITES_PER_ROOM = 10;
+const float SPAWN_DISTANCE_FROM_PLAYER = 10.0f;
 
 void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture) 
 {
@@ -125,26 +126,58 @@ void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture)
     itu_entity_tag_add(enemy_id, TAG_ENEMY);
 }
 
-void system_enemy_spawner(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count) 
-{
-	if (entity_ids_count < TARGET_ENEMY_COUNT) {
+int get_room_index_from_position(vec2f position) {
+	const float HALF_ROOM_WIDTH = ROOM_NUM_TILES_X / 2.0f;
+	for (int i = 0; i < tilemap_count; ++i) {
+		if (!itu_entity_is_valid(tilemaps[i])) continue;
 
-		// Get player position
-		Transform* player_transform = entity_get_data(id_player, Transform);
-		vec2f player_position = player_transform->position;
-
-		int idx = random_up_to((int)valid_spawn_locations.size(), context->prng);
-		vec2f spawn_position = valid_spawn_locations[idx];
-
-		// Check if spawn position is far enough from player, only spawn if it is
-		float dist_sq = distance_sq(player_position, spawn_position);
-		float min_dist_sq = SPAWN_DISTANCE_FROM_PLAYER * SPAWN_DISTANCE_FROM_PLAYER;
-
-		if (dist_sq >= min_dist_sq) {
-			SDL_Texture* texture_enemy = itu_sys_rstorage_texture_get_ptr(0);
-			create_enemy(context, spawn_position, texture_enemy);
+		Transform* t = entity_get_data(tilemaps[i], Transform);
+		if (position.x >= (t->position.x - HALF_ROOM_WIDTH) && position.x < (t->position.x + HALF_ROOM_WIDTH) &&
+			position.y >= (t->position.y - HALF_ROOM_WIDTH) && position.y < (t->position.y + HALF_ROOM_WIDTH)) {
+			return i;
 		}
+	}
+	return -1; // Not found
+}
 
+
+void system_maintain_enemey_population(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count) 
+{
+	const int enemies_per_room = MAX_ENEMIES_PER_ROOM;
+	const float min_spawn_distance_sq = SPAWN_DISTANCE_FROM_PLAYER * SPAWN_DISTANCE_FROM_PLAYER;
+
+	// Count active enemies in each room
+	std::vector<int> enemies_in_room(tilemap_count, 0);
+
+	for(int i = 0; i < entity_ids_count; ++i) 
+	{
+		ITU_EntityId id = entity_ids[i];
+		if(!itu_entity_is_valid(id) || !entity_get_isActive(id)) continue;
+
+		Transform* transform = entity_get_data(id, Transform);
+		int room_idx = get_room_index_from_position(transform->position);
+		
+		if (room_idx == -1) continue;
+		enemies_in_room[room_idx]++;
+	}
+
+	// Spawn enemies in rooms that are below the threshold
+	Transform* player_transform = entity_get_data(id_player, Transform);
+	vec2f player_position = player_transform->position;
+
+	SDL_Texture* texture_enemy = itu_sys_rstorage_texture_get_ptr(0);
+
+	for(int i = 0; i < tilemap_count; ++i) {
+		if (enemies_in_room[i] < enemies_per_room && !room_spawn_locations[i].empty()) {
+			int rand_idx = random_up_to((int)room_spawn_locations[i].size(), context->prng);
+            vec2f candidate_pos = room_spawn_locations[i][rand_idx];
+
+			// Ensure spawn position is far enough from player
+			if (distance_sq(player_position, candidate_pos) >= min_spawn_distance_sq) {
+				create_enemy(context, candidate_pos, texture_enemy);
+				return; // Spawn one enemy per update
+			}
+		}
 	}
 }
 
@@ -879,7 +912,7 @@ static void game_init(SDLContext* context)
 	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0, false);
 	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0, false);
 	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
-	add_system(system_enemy_spawner, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
+	add_system(system_maintain_enemey_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
 }
 
 static void game_reset(SDLContext* context)
@@ -903,10 +936,10 @@ static void game_reset(SDLContext* context)
 		// Clear previous valid spawn locations
 		valid_spawn_locations.clear();
 		Tilemap rooms[tilemap_count];
-		
-
 		Map map = generate_map(rooms, 4, 4, tilemap_count, context->prng);
+
 		for(int i = 0; i < tilemap_count; ++i){
+			room_spawn_locations[i].clear();
 			Point location = map.room_locations[i];
 		
 			ITU_EntityId id_tilemap = itu_entity_create();
@@ -943,6 +976,7 @@ static void game_reset(SDLContext* context)
 					std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(tilemap, transform, c, r, 0);
 					if(!is_solid_tile(tile_id)){
 						valid_spawn_locations.push_back(tile_position);
+						room_spawn_locations[i].push_back(tile_position);
 					}
 					else {
 						//Create colliders by merging horizontal tiles

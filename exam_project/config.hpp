@@ -30,7 +30,7 @@
 
 #define ROOM_NUM_TILES_X 30
 #define ROOM_NUM_TILES_Y 30
-#define MAX_ENEMIES_PER_ROOM 5
+#define MAX_ENEMIES_PER_ROOM 10
 #define BULLET_POOL_SIZE 30
 
 enum CollisionCategories{

@@ -1,7 +1,5 @@
 #include <config.hpp>
 #include <itu_unity_include.hpp>
-#include <utilities/room_parser.cpp>
-#include <utilities/map_generator.cpp>
 
 // ui colors
 #define COLOR_BTN_DEFAULT color { 0.5f, 0.5f, 0.5f, 1.0f }
@@ -19,95 +17,6 @@ enum Tags
 	
 };
 
-struct Tilemap
-{
-	SDL_Texture* texture;
-	vec2f 		 pivot;
-	int          num_rows;
-	int          num_cols;
-	int          tile_size; // in pixels
-	int* tile_ids;  // [num_rows][num_cols]
-};
-register_component(Tilemap)
-
-struct PlayerData
-{
-	float curr_speed_linear;
-	float curr_speed_rotational;
-	vec2f rotation;
-
-	ITU_EntityId target;
-};
-register_component(PlayerData)
-
-struct EnemyData
-{
-	/* data */
-	float curr_speed_linear;
-};
-register_component(EnemyData)
-
-struct Health
-{
-	float max;
-	float curr;
-	float elapsed;
-	float grace_period;
-};
-register_component(Health)
-
-struct HealthRenderer
-{
-	float widget_base_w;
-	ITU_EntityId target;
-};
-register_component(HealthRenderer)
-
-struct CooldownRenderer
-{
-	float widget_base_w;
-	ITU_EntityId target;
-};
-register_component(CooldownRenderer)
-
-struct TransformScreen
-{
-	vec2f position;
-	vec2f scale;
-	float rotation;
-};
-register_component(TransformScreen)
-
-struct Sprite9Patch
-{
-	SDL_Texture* texture;
-	SDL_FRect    rect;
-	vec2f        pivot;
-	vec2f        size;
-	vec2f        margins_hor;
-	vec2f        margins_ver;
-	color        tint;
-};
-register_component(Sprite9Patch)
-
-struct ImageButton
-{
-	TTF_Text* ttf_text; // owned
-
-	void (*fn_callback_hover)(SDLContext* context, ITU_EntityId id);
-	void (*fn_callback_click)(SDLContext* context, ITU_EntityId id);
-};
-register_component(ImageButton)
-
-struct ShooterData
-{
-	Weapon weapon;
-	unsigned int bullet_count;
-	unsigned int next_bullet_idx;
-	float cooldown_left;
-	ITU_EntityId bullets[BULLET_POOL_SIZE];
-};
-register_component(ShooterData)
 
 static ITU_EntityId id_player;
 
@@ -978,53 +887,52 @@ static void game_reset(SDLContext* context)
 	{
 		// Clear previous valid spawn locations
 		valid_spawn_locations.clear();
-
+		Tilemap rooms[tilemap_count];
 		
-		Map map_layout = generate_map(4,4,tilemap_count,context->prng);
 
-		const int rows = 30; 
-		const int cols = 30;
-		size_t size = rows * cols;
-		int cur_map = 0;
-
-		for(const auto& location : map_layout.room_locations){
+		Map map = generate_map(rooms, tilemap_count, 4, 4, context->prng);
+		for(int i = 0; i < tilemap_count; ++i){
+			Point location = map.room_locations[i];
 		
 			ITU_EntityId id_tilemap = itu_entity_create();
-			tilemaps[cur_map++] = id_tilemap;
+			tilemaps[i] = id_tilemap;
 			itu_entity_set_debug_name(id_tilemap, "tilemap");
 			
-			Tilemap tilemap; 
+			rooms[i].texture = texture_tiles;
+			rooms[i].tile_size = 16;
+			rooms[i].pivot = { 0.5f, 0.5f };
 			
-			tilemap.num_cols = cols;
-			tilemap.num_rows = rows;
-			tilemap.tile_ids = new int[size];
-			generate_map_cellular_automata(tilemap.tile_ids, 12, 45, rows, cols, context->prng);
-			tilemap.texture = texture_tiles;
-			tilemap.tile_size = 16;
-			tilemap.pivot = { 0.5f, 0.5f };
 			
 			Transform transform = TRANSFORM_DEFAULT;
 			transform.scale = vec2f { 1.0f, 1.0f };
-			transform.position  = room_coordinate_to_world_position(location.x, location.y, rows, cols);
-	
+			transform.position  = room_coordinate_to_world_position(location.x, location.y, map.room_rows, map.room_cols);
+
 			entity_add_component(id_tilemap, Transform, transform);
-			entity_add_component(id_tilemap, Tilemap, tilemap);
-	
+			entity_add_component(id_tilemap, Tilemap, rooms[i]);
+
+		}
+
+		int cols = map.room_cols;
+		int rows = map.room_rows;
+
+		for (int i = 0; i < tilemap_count; i++) {
 			// player vs tile collision detection
 			for (int r = 0; r < rows; ++r) {
 				for(int c = 0; c < cols; ++c) {
 					int idx = r * cols + c;
-					int tile_id = tilemap.tile_ids[idx];
+					Tilemap* tilemap = entity_get_data(tilemaps[i], Tilemap);
+					Transform* transform = entity_get_data(tilemaps[i], Transform);
+					int tile_id = tilemap->tile_ids[idx];
 	
 					vec2f tile_position;
-					std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(&tilemap, &transform, c, r, 0);
+					std::tie(std::ignore, tile_position) = tile_coordinate_to_world_position(tilemap, transform, c, r, 0);
 					if(!is_solid_tile(tile_id)){
 						valid_spawn_locations.push_back(tile_position);
 					}
 					else {
 						//Create colliders by merging horizontal tiles
 						int width = 1;
-						while (c + width < cols && is_solid_tile(tilemap.tile_ids[idx + width])) ++width;
+						while (c + width < cols && is_solid_tile(tilemap->tile_ids[idx + width])) ++width;
 				
 						ITU_EntityId row_id = itu_entity_create();
 						itu_entity_set_debug_name(row_id, "tile-collider");

@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <string>
 #include <set>
+#include <queue>
 
 
 #include <SDL3/SDL.h>
@@ -56,5 +57,8 @@
 #include <itu_entity_storage.cpp>
 
 #include <utilities/weapon_utils.hpp>
+#include <utilities/components.hpp>
+#include <utilities/map_generator.cpp>
+
 
 

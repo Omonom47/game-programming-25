@@ -289,8 +289,112 @@ void keep_largest_open_area(int* grid, int rows, int cols) {
     }
 }
 
-void create_path_between_rooms(Map map, Point room_a, Point room_b) {
+int get_room_index(Map map, Point room) {
+    for (int i = 0; i < map.room_locations.size(); i++) {
+        if (map.room_locations[i].x == room.x && map.room_locations[i].y == room.y) {
+            return i;
+        }
+    }
+    return -1; // Not found
+}
 
+int get_distance_from_edge_to_open_area(int* grid, int rows, int cols, Point point, Point dir) {
+    int x = point.x;
+    int y = point.y;
+    int distance = 0;
+
+    int max_steps = (dir.x != 0) ? cols : rows;
+    for (int i = 0; i < max_steps; i++) {
+        // Boundary check
+        if (!check_bounds(x, y, cols, rows)) {
+            return 9999; // Penalty for going out of bounds
+        }
+        if (grid[y * cols + x] == EMPTY) {
+            return distance;
+        }
+        x += dir.x;
+        y += dir.y;
+        distance++;
+    }
+    return 9999; // Penalty, as we didn't find an empty cell
+}
+
+void carve_path(int* grid, int rows, int cols, Point start, int length, Point dir) {
+    int x = start.x;
+    int y = start.y;
+
+    for(int i = 0; i <= length; i++) {
+        if (!check_bounds(x, y, cols, rows)) {
+            break; // Stop if out of bounds, should not happen
+        }
+        int idx = y * cols + x;
+        grid[idx] = EMPTY;
+        x += dir.x;
+        y += dir.y;
+    }
+}
+
+
+void create_path_between_rooms(Map map, Tilemap* tilemaps, Point room_a, Point room_b) {
+    int* grid_a = tilemaps[get_room_index(map, room_a)].tile_ids;
+    int* grid_b = tilemaps[get_room_index(map, room_b)].tile_ids;
+
+    int rows = map.room_rows;
+    int cols = map.room_cols;
+
+    // Calculate direction from room_a to room_b
+    Point direction = { 0, 0};
+    direction.x = (room_b.x > room_a.x) - (room_b.x < room_a.x);
+    direction.y = (room_b.y > room_a.y) - (room_b.y < room_a.y);
+
+    // Determine wall orientation
+    bool is_horizontal = (direction.x != 0);
+    int wall_length = is_horizontal ? rows : cols;
+    int room_depth = is_horizontal ? cols : rows;
+
+    // Determinte wall coordinates
+    bool is_positive_direction = (is_horizontal && direction.x > 0) || (!is_horizontal && direction.y > 0);
+    int wall_x = is_positive_direction ? room_depth - 1 : 0;
+    int wall_y = is_positive_direction ? 0 : room_depth - 1;
+
+    // Scan directions
+    Point scan_room_a_direction = { -direction.x, -direction.y };
+    Point scan_room_b_direction = direction;
+
+    // Find best wall position to create a path
+    int best_wall_pos = -1;
+    int best_distance = 9999;
+
+    // Skip corners when scanning
+    for (int i = 1; i < wall_length - 1; ++i) {
+        Point point_a = is_horizontal ? Point{ wall_x, i } : Point{ i, wall_x };
+        Point point_b = is_horizontal ? Point{ wall_y, i } : Point{ i, wall_y };
+
+        int distance_a = get_distance_from_edge_to_open_area(grid_a, rows, cols, point_a, scan_room_a_direction);
+        int distance_b = get_distance_from_edge_to_open_area(grid_b, rows, cols, point_b, scan_room_b_direction);
+
+        if (distance_a + distance_b < best_distance) {
+            best_distance = distance_a + distance_b;
+            best_wall_pos = i;
+
+            // Early exit if we found a good enough path
+            if (best_distance <= 5) {
+                break;
+            }
+        }
+    }
+
+    // Carve path in both rooms at the best wall position
+    if (best_wall_pos != -1) {
+        Point path_point_a = is_horizontal ? Point{ wall_x, best_wall_pos } : Point{ best_wall_pos, wall_x };
+        Point path_point_b = is_horizontal ? Point{ wall_y, best_wall_pos } : Point{ best_wall_pos, wall_y };
+
+        int length_a = get_distance_from_edge_to_open_area(grid_a, rows, cols, path_point_a, scan_room_a_direction);
+        int length_b = get_distance_from_edge_to_open_area(grid_b, rows, cols, path_point_b, scan_room_b_direction);
+        carve_path(grid_a, rows, cols, path_point_a, length_a, scan_room_a_direction);
+        carve_path(grid_b, rows, cols, path_point_b, length_b, scan_room_b_direction);
+
+    }
 }
 
 
@@ -319,8 +423,23 @@ Map generate_map(Tilemap* tilemaps, int width, int height, int num_rooms, PRNG* 
         tilemaps[i] = tilemap;
     }
 
-    // Post-process the map to ensure connectivity
 
+    // Post-process the map to ensure connectivity
+    for (int i = 0; i < num_rooms; i++) {
+        Point current_room = map_layout.room_locations[i];
+
+        //Check Right Neighbor
+        Point right_neighbor = { current_room.x + 1, current_room.y };
+        if (get_room_index(map_layout, right_neighbor) != -1) {
+            create_path_between_rooms(map_layout, tilemaps, current_room, right_neighbor);
+        }
+
+        //Check Up Neighbor
+        Point up_neighbor = { current_room.x, current_room.y + 1 };
+        if (get_room_index(map_layout, up_neighbor) != -1) {
+            create_path_between_rooms(map_layout, tilemaps, current_room, up_neighbor);
+        }
+    }
     return map_layout;
 
 }

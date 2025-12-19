@@ -277,14 +277,17 @@ vec2f room_coordinate_to_world_position(int room_x, int room_y, int room_width, 
 }
 
 std::tuple<vec2f, vec2f> tile_coordinate_to_world_position(Tilemap* tilemap, Transform* transform, int tile_col, int tile_row, float tile_offset = -0.5f, vec2f pivot = vec2f{ 0.5f, 0.5f }){
-	int tile_size = tilemap->tile_size;
-	
-	float width = transform->scale.x * (tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
-	float height = transform->scale.y * (tile_size / (float)TEXTURE_PIXELS_PER_UNIT);
-	float x = transform->position.x + width * (tile_col + tile_offset) - (pivot.x * ROOM_NUM_TILES_X);
-	float y = transform->position.y + height * (tile_row + tile_offset) - (pivot.y * ROOM_NUM_TILES_Y);
+	float width = transform->scale.x;
+    float height = transform->scale.y;
 
-	return std::make_tuple(vec2f { width, height }, vec2f { x, y });
+    float room_width = 30.0f * width;
+    float room_height = 30.0f * height;
+
+    // Calculate centered position
+    float x = transform->position.x + (tile_col + tile_offset) * width - (pivot.x * room_width);
+    float y = transform->position.y + (tile_row + tile_offset) * height - (pivot.y * room_height);
+
+    return std::make_tuple(vec2f { width, height }, vec2f { x, y });
 }
 
 bool is_solid_tile(int tile_id){

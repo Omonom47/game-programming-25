@@ -709,6 +709,40 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 	}
 }
 
+std::vector<vec2f> get_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f direction){
+	std::vector<vec2f> dirs;
+	switch (pattern)
+		{
+			case SPREAD:
+				float angle; 
+				angle = DEG_2_RAD*60.0f;
+				float angle_between_shots;
+				angle_between_shots = (2*angle)/(float)bullet_amount;
+				angle_between_shots *= DEG_2_RAD;
+				if (is_odd(bullet_amount))
+				{
+					dirs.push_back(direction);
+				}
+				
+				while (dirs.size()< bullet_amount)
+				{
+					vec2f new_dir = rotate(direction,angle);
+					
+					vec2f reflected = reflect(-new_dir,direction);	
+
+					dirs.push_back(normalize(new_dir));
+					dirs.push_back(normalize(reflected));
+
+					angle -= angle_between_shots;
+				}
+				
+			break;
+		
+		default:
+			break;
+		}
+	return dirs;
+}
 
 void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count){
 	for (int i = 0; i < entity_ids_count; i++)
@@ -723,77 +757,46 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 
 		bool canShoot = shooter->cooldown_left <= 0;
 
-		if(context->btn_isjustpressed_space && canShoot){
-			Transform* transform = entity_get_data(id,Transform);
-			PlayerData* pd = entity_get_data(id,PlayerData);
-	
-			ITU_EntityId null_ent = ITU_ENTITY_ID_NULL;
-			Transform* target;
-			vec2f direction = player_data->rotation;
-			
-			int bullet_amount = shooter->weapon.bullets_per_shot;
-			unsigned int start_index = shooter->next_bullet_idx;	
-			
-			std::vector<vec2f> dirs;
-			switch (shooter->weapon.pattern)
-			{
-				case SPREAD:
-					float angle; 
-					angle = DEG_2_RAD*60.0f;
-					float angle_between_shots;
-					angle_between_shots = (2*angle)/(float)bullet_amount;
-					angle_between_shots *= DEG_2_RAD;
-					if (is_odd(bullet_amount))
-					{
-						dirs.push_back(direction);
-					}
-					
-					while (dirs.size()< bullet_amount)
-					{
-						
-						vec2f new_dir = rotate(direction,angle);
-						
-						vec2f reflected = reflect(-new_dir,direction);
-						
+		if(!context->btn_isjustpressed_space || !canShoot)
+			continue;
 
-						dirs.push_back(normalize(new_dir));
-						dirs.push_back(normalize(reflected));
+		Transform* transform = entity_get_data(id,Transform);
+		PlayerData* pd = entity_get_data(id,PlayerData);
 
-						angle -= angle_between_shots;
-					}
-					
-				break;
+		ITU_EntityId null_ent = ITU_ENTITY_ID_NULL;
+		Transform* target;
+		vec2f direction = player_data->rotation;
+		
+		int bullet_amount = shooter->weapon.bullets_per_shot;
+		unsigned int start_index = shooter->next_bullet_idx;	
+		
+		std::vector<vec2f> dirs = get_bullet_dirs(shooter->weapon.pattern,bullet_amount,direction);
+		
+		for (int j = 0; j < bullet_amount; j++)
+		{
+			ITU_EntityId bullet_id = shooter->bullets[start_index];
+			BulletData* bd = entity_get_data(bullet_id,BulletData);
+			Transform* bt = entity_get_data(bullet_id,Transform);
+			PhysicsData* bullet_phys = entity_get_data(bullet_id,PhysicsData);
+
+			entity_set_active(bullet_id, true);
+			bd->direction = dirs.size() > 0 ? dirs[j] : direction;
 			
-			default:
-				break;
+			bd->speed = shooter->weapon.bullet_speed;
+			bd->update_behaviour = shooter->weapon.fn_bullet_behaviour;
+
+			bt->position = transform->position;
+			
+			b2Body_SetTransform(bullet_phys->body_id,value_cast(b2Vec2,bt->position),
+				b2Body_GetRotation(bullet_phys->body_id));
+			
+			start_index++;
+			if(start_index >= shooter->bullet_count){
+				start_index = 0;
 			}
-			
-			for (int j = 0; j < bullet_amount; j++)
-			{
-				ITU_EntityId bullet_id = shooter->bullets[start_index];
-				BulletData* bd = entity_get_data(bullet_id,BulletData);
-				Transform* bt = entity_get_data(bullet_id,Transform);
-				PhysicsData* bullet_phys = entity_get_data(bullet_id,PhysicsData);
-
-				entity_set_active(bullet_id, true);
-				bd->direction = dirs.size() > 0 ? dirs[j] : direction;
-				
-				bd->speed = shooter->weapon.bullet_speed;
-				bd->update_behaviour = shooter->weapon.fn_bullet_behaviour;
-	
-				bt->position = transform->position;
-				
-				b2Body_SetTransform(bullet_phys->body_id,value_cast(b2Vec2,bt->position),
-					b2Body_GetRotation(bullet_phys->body_id));
-				
-				start_index++;
-				if(start_index >= shooter->bullet_count){
-					start_index = 0;
-				}
-			}
-			shooter->next_bullet_idx = start_index;
-			shooter->cooldown_left = shooter->weapon.cooldown;
 		}
+		shooter->next_bullet_idx = start_index;
+		shooter->cooldown_left = shooter->weapon.cooldown;
 
 	}
 	

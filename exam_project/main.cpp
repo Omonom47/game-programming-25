@@ -899,13 +899,24 @@ void system_health_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 	}
 }
 
+float calculate_max_angle(int bullet_amount){
+	int ba_sqrd = bullet_amount*bullet_amount;
+
+	float angle = ba_sqrd*bullet_amount;
+	angle /= 8.0f;
+	angle -= ba_sqrd/4.0f;
+	angle += bullet_amount << 3;
+	angle += 15.0f;
+	return angle;
+}
+
 void set_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f direction, vec2f* out){
 	
 	switch (pattern)
 		{
 			case SPREAD:
 				float max_angle; 
-				max_angle = DEG_2_RAD*(15*bullet_amount+15);
+				max_angle = DEG_2_RAD *calculate_max_angle(bullet_amount);
 				float angle_between_shots;
 				angle_between_shots = max_angle/(float)(bullet_amount-1);
 				float angle;

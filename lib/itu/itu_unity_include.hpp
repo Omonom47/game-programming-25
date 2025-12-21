@@ -5,6 +5,7 @@
 
 #define STB_DS_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
+#define ITU_LIB_AUDIO_IMPLEMENTATION
 
 //Standard library includes
 #include <ctime>
@@ -47,6 +48,7 @@
 #include <itu_lib_overlaps.hpp>
 #include <itu_lib_sprite.hpp>
 #include <itu_lib_imgui.hpp>
+#include <itu_lib_audio.hpp>
 // #include <itu_lib_box2d.hpp> // deprecated
 #include <itu_sys_physics.hpp>
 

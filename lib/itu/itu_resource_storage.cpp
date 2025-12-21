@@ -20,6 +20,7 @@ struct AudioData
 {
 	MIX_Audio* audio;
 };
+static ITU_IdAudio id_audio_next;
 
 struct FontData
 {
@@ -38,6 +39,26 @@ struct ITU_ResourceStorageContext
 	stbds_hm(ITU_IdFont   , const char*) debug_names_font;
 };
 ITU_ResourceStorageContext ctx_rstorage;
+
+void itu_sys_rstorage_texture_set_debug_name(ITU_IdTexture id, const char* debug_name)
+{
+	// NOTE: allocating every single name is BAD, but we haven't looked in allocaiton startegies and memory arenas yet
+	int len = SDL_strlen(debug_name);
+	char* name_storage = (char*)SDL_malloc(len + 1);
+	SDL_memcpy(name_storage, debug_name, len);
+	name_storage[len] = 0;
+
+	stbds_hmput(ctx_rstorage.debug_names_texture, id, name_storage);
+}
+
+const char* itu_sys_rstorage_texture_get_debug_name(ITU_IdTexture id)
+{
+	int name_loc = stbds_hmgeti(ctx_rstorage.debug_names_texture, id);
+	if(name_loc == -1)
+		return NULL;
+
+	return ctx_rstorage.debug_names_texture[name_loc].value;
+}
 
 ITU_IdTexture itu_sys_rstorage_texture_load(SDLContext* context, const char* path, SDL_ScaleMode mode)
 {
@@ -90,25 +111,67 @@ ITU_IdTexture itu_sys_rstorage_texture_add(SDL_Texture* texture)
 	return new_tex_idx;
 }
 
-void itu_sys_rstorage_texture_set_debug_name(ITU_IdTexture id, const char* debug_name)
-{
-	// NOTE: allocating every single name is BAD, but we haven't looked in allocaiton startegies and memory arenas yet
-	int len = SDL_strlen(debug_name);
-	char* name_storage = (char*)SDL_malloc(len + 1);
-	SDL_memcpy(name_storage, debug_name, len);
-	name_storage[len] = 0;
 
-	stbds_hmput(ctx_rstorage.debug_names_texture, id, name_storage);
+// ====================================================================================
+// audio
+// ====================================================================================
+
+ITU_IdAudio itu_sys_rstorage_audio_add(MIX_Audio* audio)
+{
+    ITU_IdAudio new_audio_idx = id_audio_next++;
+    AudioData new_audio_data = { 0 };
+    new_audio_data.audio = audio;
+
+    stbds_hmput(ctx_rstorage.storage_audio, new_audio_idx, new_audio_data);
+
+    return new_audio_idx;
 }
 
-const char* itu_sys_rstorage_texture_get_debug_name(ITU_IdTexture id)
+void itu_sys_rstorage_audio_set_debug_name(ITU_IdAudio id, const char* debug_name)
 {
-	int name_loc = stbds_hmgeti(ctx_rstorage.debug_names_texture, id);
-	if(name_loc == -1)
-		return NULL;
-
-	return ctx_rstorage.debug_names_texture[name_loc].value;
+    int len = SDL_strlen(debug_name);
+    char* name_storage = (char*)SDL_malloc(len + 1);
+    SDL_memcpy(name_storage, debug_name, len);
+    name_storage[len] = 0;
+    stbds_hmput(ctx_rstorage.debug_names_audio, id, name_storage);
 }
+
+const char* itu_sys_rstorage_audio_get_debug_name(ITU_IdAudio id)
+{
+    int name_loc = stbds_hmgeti(ctx_rstorage.debug_names_audio, id);
+    if(name_loc == -1) return NULL;
+    return ctx_rstorage.debug_names_audio[name_loc].value;
+}
+
+ITU_IdAudio itu_sys_rstorage_audio_load(SDLContext* context, const char* path, bool preload)
+{
+    // Assuming SDL_Mixer is initialized elsewhere or lazy init
+    // We use the mix device from context if available, otherwise default
+    MIX_Audio* new_audio = MIX_LoadAudio(NULL, path, preload); 
+
+    if(!new_audio)
+    {
+        SDL_Log("Invalid or not supported audio file '%s': %s", path, SDL_GetError());
+        return -1;
+    }
+
+    ITU_IdAudio new_audio_idx = itu_sys_rstorage_audio_add(new_audio);
+
+#ifdef ENABLE_DIAGNOSTICS
+    itu_sys_rstorage_audio_set_debug_name(new_audio_idx, path);
+#endif
+
+    return new_audio_idx;
+}
+
+MIX_Audio* itu_sys_rstorage_audio_get_ptr(ITU_IdAudio id)
+{
+    int loc = stbds_hmgeti(ctx_rstorage.storage_audio, id);
+    if(loc == -1) return NULL;
+    return ctx_rstorage.storage_audio[loc].value.audio;
+}
+
+
 
 // =====================================================================================
 // fonts

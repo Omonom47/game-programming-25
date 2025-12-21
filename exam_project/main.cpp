@@ -35,6 +35,12 @@ const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
 const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
 
 // =============================================================
+// 	Audio
+// =============================================================
+static ITU_IdAudio id_background_music;
+const char* BACKGROUND_MUSIC = "../data/kenney/SFX/dungeon_ambience.ogg";
+
+// =============================================================
 // 	Goal post placement
 // =============================================================
 
@@ -872,6 +878,10 @@ static void game_init(SDLContext* context)
 	itu_sys_rstorage_texture_load(context, "data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
 	itu_sys_rstorage_font_load(context, "data/ARIALBD.TTF", 42);
 
+	sys_audio_init(4);
+	id_background_music = itu_sys_rstorage_audio_load(context, BACKGROUND_MUSIC, true);
+	sys_audio_set_gain_music(0.5f); // Set volume
+	
 	itu_sys_estorage_init(512);
 	itu_sys_physics_init(context);
 
@@ -921,6 +931,10 @@ static void game_reset(SDLContext* context)
 	SDL_Texture* texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
 	SDL_Texture* texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);
 	TTF_Font* font_bold = itu_sys_rstorage_font_get_ptr(0);
+	MIX_Audio* music_ptr = itu_sys_rstorage_audio_get_ptr(id_background_music);
+
+	if(music_ptr)
+		sys_audio_play_music(music_ptr, -1); // Loop indefinitely
 
 	free_map();
 	itu_sys_estorage_clear_all_entities();

@@ -44,10 +44,8 @@
 #include <itu_resource_storage.hpp>
 
 #include <itu_lib_render.hpp>
-#include <itu_lib_overlaps.hpp>
 #include <itu_lib_sprite.hpp>
 #include <itu_lib_imgui.hpp>
-// #include <itu_lib_box2d.hpp> // deprecated
 #include <itu_sys_physics.hpp>
 
 #include <itu_lib_debug_ui.hpp>

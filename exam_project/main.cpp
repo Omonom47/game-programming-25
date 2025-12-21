@@ -131,7 +131,8 @@ void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture)
 
     EnemyData ed = { 0 };
     ed.curr_speed_linear = 4;
-    Health enemy_health = { 3, 3 , 1.0f, 0.0f };
+	int max_health = 100;
+    Health enemy_health = { max_health, max_health , 1.0f, 0.0f };
 
     entity_add_component(enemy_id, Transform, transform);
     entity_add_component(enemy_id, PhysicsData, physics_data);
@@ -170,7 +171,9 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	body_def.position = value_cast(b2Vec2, transform.position);
 	body_def.userData = value_cast(void*, id);
 	body_def.isBullet = true;
+	
 	pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
+	b2Body_SetUserData(pd.body_id,value_cast(void*, id));
 	
 	ShapeData shape_data;
 	b2ShapeDef shape_def = b2DefaultShapeDef();
@@ -515,7 +518,11 @@ void system_enemy_collision_events(SDLContext* context, ITU_EntityId* entity_ids
 			// Handle collision with bullets
 			if (filter.categoryBits & BULLETS) {
 				Health* enemy_health = entity_get_data(id, Health);
-				enemy_health->curr -= 1;
+				void* user_data = b2Body_GetUserData(b2Shape_GetBody(other_id));
+				ITU_EntityId bullet_id = value_cast(ITU_EntityId,user_data);
+				BulletData* bullet = entity_get_data(bullet_id,BulletData);
+
+				enemy_health->curr -= bullet->damage;
 				enemy_health->elapsed = 0.0f;
 
 				if (enemy_health->curr <= 0.0f) {
@@ -1048,8 +1055,6 @@ static void game_reset(SDLContext* context)
 	world_def.gravity.y = 0; //Since top-down there is no gravity (anything falling downwards)
 	itu_sys_physics_reset(&world_def);
 
-	SDL_assert(ENTITY_COUNT <= ENTITIES_COUNT_MAX);
-
 	//tilemaps
 	{
 		// Clear previous valid spawn locations
@@ -1192,13 +1197,18 @@ static void game_reset(SDLContext* context)
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
 		Health player_health = { 10, 10, 1, 1 }; //max, current, elapsed, grace_period
-
+		
+		ShooterData shooter;
+		shooter.weapon = generate_weapon(context->prng);
+		shooter.cooldown_left = 0;
+		
 		entity_add_component(id_player, Transform     , transform);
 		entity_add_component(id_player, Sprite        , sprite);
 		entity_add_component(id_player, PlayerData, data);
 		entity_add_component(id_player, PhysicsData   , physics_data);
 		entity_add_component(id_player, ShapeData     , shape_data);
 		entity_add_component(id_player, Health        , player_health);
+		entity_add_component(id_player,ShooterData,shooter);
 		itu_entity_tag_add(id_player, TAG_CAMERA_TARGET);
 
 		// Set camera to player
@@ -1206,13 +1216,6 @@ static void game_reset(SDLContext* context)
 			context->camera_active->world_position = transform.position;
 		}
 	}
-
-	ShooterData shooter;
-	shooter.weapon = basic_weapon;//generate_weapon(context->prng);
-	shooter.cooldown_left = 0;
-	
-	entity_add_component(id_player,ShooterData,shooter);
-	
 
 	// healthbar
 	{
@@ -1434,7 +1437,7 @@ int main(void)
 		
 		itu_lib_imgui_frame_begin();
 
-		switch (current_state) 
+switch (current_state) 
 		{
 			case STATE_MENU:
 				render_main_menu_ui(&context, &current_state, &survival_time, &quit);
@@ -1448,7 +1451,8 @@ int main(void)
 			default:
 				break;
 		}
-
+		
+#ifdef DEBUG
 #ifdef ENABLE_DIAGNOSTICS
 		{
 			//ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4 { 33/255.0f, 33/255.0f, 33/255.0f, 255/255.0f });
@@ -1507,6 +1511,7 @@ int main(void)
 				ImGui::End();
 			}
 		}
+#endif
 #endif
 		// Destroy scheduled entites
 		destroyEntitiesScheduled();

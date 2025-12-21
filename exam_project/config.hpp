@@ -3,6 +3,8 @@
 
 #define ENABLE_DIAGNOSTICS
 
+#define DEBUG // comment out to disable debug information
+
 // rendering framerate
 #define TARGET_FRAMERATE_NS     (SECONDS(1) / 60)
 
@@ -14,8 +16,6 @@
 
 #define WINDOW_W         800
 #define WINDOW_H         600
-
-#define ENTITY_COUNT 4
 
 // ui colors
 #define EX6_COLOR_BTN_DEFAULT color { 0.5f, 0.5f, 0.5f, 1.0f }
@@ -31,7 +31,6 @@
 #define ROOM_NUM_TILES_X 30
 #define ROOM_NUM_TILES_Y 30
 #define MAX_ENEMIES_PER_ROOM 10
-#define BULLET_POOL_SIZE 30
 
 enum CollisionCategories{
     PLAYER = 0b00001,

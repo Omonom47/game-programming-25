@@ -401,22 +401,6 @@ void system_enemy_ai(SDLContext* context, ITU_EntityId* entity_ids, int entity_i
 			continue;
 
 
-		// Enemy hit flash logic
-		Health* health = entity_get_data(id, Health);
-		Sprite* sprite = entity_get_data(id, Sprite);
-
-		if(health) {
-			health->elapsed += context->delta;
-
-			// Flash red when hit
-			float flash_duration = 0.25f;
-			if (health->elapsed < flash_duration) {
-				sprite->tint = color{1.0f, 0.1f, 0.1f, 1.0f}; // Red
-			} else {
-				sprite->tint = color{1.0f, 1.0f, 1.0f, 1.0f}; // Normal
-			}
-		}
-
 		// Enemy movement towards player
 		EnemyData* enemy_data = entity_get_data(id, EnemyData);
 		Transform* transform = entity_get_data(id, Transform);
@@ -480,7 +464,6 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 					}
 					return;
 				}
-				health->elapsed += context->delta;
 				
 			}
 			
@@ -852,18 +835,6 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 		Transform*      transform    = entity_get_data(id, Transform);
 		PlayerData* data         = entity_get_data(id, PlayerData);
 		PhysicsData*    physics_data = entity_get_data(id, PhysicsData);
-		Sprite* sprite = entity_get_data(id, Sprite);
-		Health* health = entity_get_data(id, Health);
-
-		// No need to increment elapsed time here, done in collision system
-		health->elapsed += context->delta;
-		float flash_duration = 0.25f;
-		if (health->elapsed < flash_duration) {
-			sprite->tint = color{1.0f, 0.1f, 0.1f, 1.0f}; // Red
-		} else {
-			sprite->tint = color{1.0f, 1.0f, 1.0f, 1.0f}; // Normal
-		}
-
 
 		// Movement
 		vec2f move_dir = VEC2F_ZERO;
@@ -892,6 +863,25 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 		float angle = atan2(data->rotation.y, data->rotation.x);
 		float snapped_angle = round(angle / step) * step;
 		transform->rotation = snapped_angle - PI_HALF;
+	}
+}
+
+void system_health_update(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count) {
+	for (int i = 0; i < entity_ids_count; ++i) {
+		ITU_EntityId id = entity_ids[i];
+		Health* health = entity_get_data(id, Health);
+		Sprite* sprite = entity_get_data(id, Sprite);
+
+		// Update elapsed time
+		health->elapsed += context->delta;
+
+		float flash_duration = 0.25f;
+		if (health->elapsed < flash_duration) {
+            sprite->tint = color{1.0f, 0.1f, 0.1f, 1.0f}; // Red
+        } 
+        else {
+            sprite->tint = color{1.0f, 1.0f, 1.0f, 1.0f}; // Normal
+        }
 	}
 }
 
@@ -1041,6 +1031,7 @@ static void game_init(SDLContext* context)
 	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0, false);
 	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
 	add_system(system_maintain_enemy_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
+	add_system(system_health_update, component_mask(Health) | component_mask(Sprite), 0, false);
 }
 
 static void game_reset(SDLContext* context)

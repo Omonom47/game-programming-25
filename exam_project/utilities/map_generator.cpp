@@ -25,6 +25,7 @@ struct Map
 
 const int WALL = 0;
 const int EMPTY = 1;
+const int ALTERNATE_FLOOR = 2;
 
 bool check_bounds(int x, int y, int width, int height){
     return (x >= 0 && x < width && y >= 0 && y < height);
@@ -439,7 +440,27 @@ Map generate_map(Tilemap* tilemaps, int width, int height, int num_rooms, PRNG* 
         if (get_room_index(map_layout, up_neighbor) != -1) {
             create_path_between_rooms(map_layout, tilemaps, current_room, up_neighbor);
         }
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                int idx = r * cols + c;
+                if (tilemaps[i].tile_ids[idx] == WALL)
+                    continue;
+
+                if (random_up_to(100,engine) < 16)
+                {
+                    tilemaps[i].tile_ids[idx] = ALTERNATE_FLOOR;
+                }
+                
+            }
+            
+        }
+        
     }
+
+
     return map_layout;
 
 }

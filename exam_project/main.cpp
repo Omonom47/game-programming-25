@@ -133,6 +133,52 @@ void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture)
     itu_entity_tag_add(enemy_id, TAG_ENEMY);
 }
 
+ITU_EntityId create_bullet(vec2f position, BulletData data)
+{
+	SDL_Texture* texture_tiles= itu_sys_rstorage_texture_get_ptr(0);
+
+	b2Capsule capsule = { 0 };
+	capsule.center1 = b2Vec2_zero;
+	capsule.center2 = b2Vec2_zero;
+	capsule.radius = 0.15f;
+	ITU_EntityId id = itu_entity_create();
+	
+
+	itu_entity_set_debug_name(id,"bullet");
+	Transform transform = TRANSFORM_DEFAULT;
+	transform.position = position;
+	// Calculate bullet rotation
+	float bullet_angle = atan2(data.direction.y, data.direction.x);
+	transform.rotation = bullet_angle - PI_HALF;
+
+	Sprite sprite;
+	itu_lib_sprite_init(&sprite,texture_tiles,itu_lib_sprite_get_rect(11,10,TEXTURE_PIXELS_PER_UNIT,TEXTURE_PIXELS_PER_UNIT));	
+	
+	PhysicsData pd = { 0 };
+	pd.ignore_rotation = true;
+	b2BodyDef body_def = b2DefaultBodyDef();
+	body_def.type = b2_dynamicBody;
+	body_def.position = value_cast(b2Vec2, transform.position);
+	body_def.userData = value_cast(void*, id);
+	body_def.isBullet = true;
+	pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
+	
+	ShapeData shape_data;
+	b2ShapeDef shape_def = b2DefaultShapeDef();
+	shape_def.enableContactEvents = true;
+	shape_def.filter.categoryBits = BULLETS;
+	shape_def.filter.maskBits = ENEMIES | WALLS;
+	shape_data.shape_id = b2CreateCapsuleShape(pd.body_id,&shape_def,&capsule);
+
+	entity_add_component(id, Transform, transform);
+	entity_add_component(id, Sprite, sprite);
+	entity_add_component(id, BulletData, data);
+	entity_add_component(id, PhysicsData, pd);
+	entity_add_component(id, ShapeData, shape_data);
+
+	return id;
+}
+
 int get_room_index_from_position(vec2f position) {
 	const float HALF_ROOM_WIDTH = ROOM_NUM_TILES_X / 2.0f;
 	for (int i = 0; i < tilemap_count; ++i) {
@@ -430,6 +476,8 @@ void system_bullet_collision_events(SDLContext* context, ITU_EntityId* entity_id
 		int contact = b2Shape_GetContactData(bullet_id, contactData, 10);
 		if (contact > 0) {
 			entity_set_active(id, false);
+			PhysicsData* phys = entity_get_data(id,PhysicsData);
+			bodiesScheduleForDeletion.push_back(std::tie(phys->body_id,id));
 		}
 		
 	}
@@ -793,10 +841,10 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 
 		// Shooting 
 		vec2f shoot_dir = VEC2F_ZERO;
-		if(context->btn_isdown[BTN_TYPE_UP])    shoot_dir.y += 1;
-		if(context->btn_isdown[BTN_TYPE_DOWN])  shoot_dir.y -= 1;
-		if(context->btn_isdown[BTN_TYPE_LEFT])  shoot_dir.x -= 1;
-		if(context->btn_isdown[BTN_TYPE_RIGHT]) shoot_dir.x += 1;
+		if(context->btn_isdown[BTN_TYPE_UP])    shoot_dir = VEC2F_UP;
+		if(context->btn_isdown[BTN_TYPE_DOWN])  shoot_dir = VEC2F_DOWN;
+		if(context->btn_isdown[BTN_TYPE_LEFT])  shoot_dir = VEC2F_LEFT;
+		if(context->btn_isdown[BTN_TYPE_RIGHT]) shoot_dir = VEC2F_RIGHT;
 
 		if (shoot_dir.x != 0 || shoot_dir.y != 0) data->rotation = normalize(shoot_dir);
 		else if (move_dir.x != 0 || move_dir.y != 0) data->rotation = normalize(move_dir);
@@ -808,8 +856,8 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 	}
 }
 
-std::vector<vec2f> get_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f direction){
-	std::vector<vec2f> dirs;
+void set_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f direction, vec2f* out){
+	
 	switch (pattern)
 		{
 			case SPREAD:
@@ -818,19 +866,21 @@ std::vector<vec2f> get_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f
 				float angle_between_shots;
 				angle_between_shots = (2*angle)/(float)bullet_amount;
 				angle_between_shots *= DEG_2_RAD;
+				int idx;
+				idx = 0;
 				if (is_odd(bullet_amount))
 				{
-					dirs.push_back(direction);
+					out[idx++] = direction;
 				}
 				
-				while (dirs.size()< bullet_amount)
+				while (idx < bullet_amount)
 				{
 					vec2f new_dir = rotate(direction,angle);
 					
 					vec2f reflected = reflect(-new_dir,direction);	
 
-					dirs.push_back(normalize(new_dir));
-					dirs.push_back(normalize(reflected));
+					out[idx++] = normalize(new_dir);
+					out[idx++] = normalize(reflected);
 
 					angle -= angle_between_shots;
 				}
@@ -840,7 +890,6 @@ std::vector<vec2f> get_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f
 		default:
 			break;
 		}
-	return dirs;
 }
 
 void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count){
@@ -860,44 +909,27 @@ void system_player_shooting(SDLContext* context, ITU_EntityId* entity_ids, int e
 			continue;
 
 		Transform* transform = entity_get_data(id,Transform);
-		PlayerData* pd = entity_get_data(id,PlayerData);
 
 		ITU_EntityId null_ent = ITU_ENTITY_ID_NULL;
-		Transform* target;
 		vec2f direction = player_data->rotation;
 		
-		int bullet_amount = shooter->weapon.bullets_per_shot;
-		unsigned int start_index = shooter->next_bullet_idx;	
+		int bullet_amount = shooter->weapon.bullets_per_shot;	
 		
-		std::vector<vec2f> dirs = get_bullet_dirs(shooter->weapon.pattern,bullet_amount,direction);
+		vec2f dirs[bullet_amount];
+		
+		set_bullet_dirs(shooter->weapon.pattern,bullet_amount,direction, dirs);
 		
 		for (int j = 0; j < bullet_amount; j++)
 		{
-			ITU_EntityId bullet_id = shooter->bullets[start_index];
-			BulletData* bd = entity_get_data(bullet_id,BulletData);
-			Transform* bt = entity_get_data(bullet_id,Transform);
-			PhysicsData* bullet_phys = entity_get_data(bullet_id,PhysicsData);
+			BulletData bd;
+			bd.damage = shooter->weapon.damage;
+			bd.direction = shooter->weapon.pattern == SPREAD ? dirs[j] : direction;
+			bd.speed = shooter->weapon.bullet_speed;
+			bd.update_behaviour = shooter->weapon.fn_bullet_behaviour;			
 
-			entity_set_active(bullet_id, true);
-			bd->direction = dirs.size() > 0 ? dirs[j] : direction;
 
-			// Calculate bullet rotation
-			float bullet_angle = atan2(bd->direction.y, bd->direction.x);
-			bt->rotation = bullet_angle - PI_HALF;
-			
-			bd->speed = shooter->weapon.bullet_speed;
-			bd->update_behaviour = shooter->weapon.fn_bullet_behaviour;
-
-			bt->position = transform->position;
-			
-			b2Body_SetTransform(bullet_phys->body_id,value_cast(b2Vec2,bt->position), b2MakeRot(bt->rotation));
-			
-			start_index++;
-			if(start_index >= shooter->bullet_count){
-				start_index = 0;
-			}
+			ITU_EntityId bullet_id = create_bullet(transform->position,bd);		
 		}
-		shooter->next_bullet_idx = start_index;
 		shooter->cooldown_left = shooter->weapon.cooldown;
 
 	}
@@ -916,11 +948,6 @@ void system_bullet_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 		
 		bd->update_behaviour(pd,bd->direction,bd->speed);
 	}
-}
-
-
-bool is_same_room(Point r1, Point r2){
-	return r1.x == r2.x && r1.y == r2.y;
 }
 
 static void game_init(SDLContext* context)
@@ -1154,62 +1181,12 @@ static void game_reset(SDLContext* context)
 		}
 	}
 
-	// bullets
-	{
-		b2Capsule capsule = { 0 };
-		capsule.center1 = b2Vec2_zero;
-		capsule.center2 = b2Vec2_zero;
-		capsule.radius = 0.15f;
-
-		ShooterData shooter;
-		shooter.next_bullet_idx = 0;
-		shooter.bullet_count = BULLET_POOL_SIZE;
-		shooter.weapon = generate_weapon(context->prng);
-		shooter.cooldown_left = 0;
-
-		for (size_t i = 0; i < BULLET_POOL_SIZE; i++)
-		{
-			ITU_EntityId id = itu_entity_create();
-			shooter.bullets[i] = id;
-
-			entity_set_active(id,false);
-
-			itu_entity_set_debug_name(id,"bullet" + i);
-			Transform transform = TRANSFORM_DEFAULT;
-
-			Sprite sprite;
-			itu_lib_sprite_init(&sprite,texture_tiles,itu_lib_sprite_get_rect(11,10,TEXTURE_PIXELS_PER_UNIT,TEXTURE_PIXELS_PER_UNIT));
-
-			BulletData bd;
-			bd.damage = 0;
-			bd.direction = VEC2F_ZERO;
-			bd.speed = 0;
-			bd.update_behaviour = nullptr;
-			
-			PhysicsData pd = { 0 };
-			pd.ignore_rotation = true;
-			b2BodyDef body_def = b2DefaultBodyDef();
-			body_def.type = b2_dynamicBody;
-			body_def.position = value_cast(b2Vec2, transform.position);
-			body_def.userData = value_cast(void*, id);
-			body_def.isBullet = true;
-			pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
-			
-
-			ShapeData shape_data;
-			b2ShapeDef shape_def = b2DefaultShapeDef();
-			shape_def.enableContactEvents = true;
-			shape_def.filter.categoryBits = BULLETS;
-			shape_def.filter.maskBits = ENEMIES | WALLS;
-			shape_data.shape_id = b2CreateCapsuleShape(pd.body_id,&shape_def,&capsule);
-			entity_add_component(id, Transform, transform);
-			entity_add_component(id, Sprite, sprite);
-			entity_add_component(id, BulletData, bd);
-			entity_add_component(id, PhysicsData, pd);
-			entity_add_component(id, ShapeData, shape_data);
-		}
-		entity_add_component(id_player,ShooterData,shooter);
-	}
+	ShooterData shooter;
+	shooter.weapon = basic_weapon;//generate_weapon(context->prng);
+	shooter.cooldown_left = 0;
+	
+	entity_add_component(id_player,ShooterData,shooter);
+	
 
 	// healthbar
 	{

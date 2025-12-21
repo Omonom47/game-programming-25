@@ -6,16 +6,6 @@
 
 typedef void (*BulletBehaviourUpdateFunction) (PhysicsData*pd, vec2f dir, float speed);
 
-struct BulletData
-{
-	unsigned int damage;
-	float speed;
-	vec2f direction;
-	BulletBehaviourUpdateFunction update_behaviour;
-};
-register_component(BulletData)
-
-
 enum ShotPattern{
 	STRAIGHT_AHEAD, SPREAD,
 };
@@ -36,7 +26,7 @@ void fn_straight_shot(PhysicsData* pd, vec2f dir, float speed){
 
 //Weapons for testing
 Weapon basic_weapon = { 1, 1, 1, 6, fn_straight_shot, STRAIGHT_AHEAD };
-Weapon basic_spread = { 2, 1, 1, 6, fn_straight_shot, SPREAD };
+Weapon basic_spread = { 3, 1, 1, 6, fn_straight_shot, SPREAD };
 
 unsigned int damage_max_fn(int bullet_amount){
 	int max = 255;

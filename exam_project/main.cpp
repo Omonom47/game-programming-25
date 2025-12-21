@@ -17,6 +17,13 @@ enum Tags
 	
 };
 
+enum GameState
+{
+	STATE_MENU,
+	STATE_PLAYING,
+	STATE_GAMEOVER
+};
+static float survival_time = 0.0f;
 
 static ITU_EntityId id_player;
 
@@ -40,6 +47,8 @@ const float METERS_PER_PIXEL = 1.0f / PIXELS_PER_METER;
 // =============================================================
 static ITU_IdAudio id_background_music;
 const char* BACKGROUND_MUSIC = "../data/kenney/SFX/dungeon_ambience.ogg";
+static ITU_IdAudio id_footsteps_sound[10];
+
 
 // =============================================================
 // 	Goal post placement
@@ -401,7 +410,7 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 				if (health->elapsed > health->grace_period) {
 					health->curr -= 1;
 					health->elapsed = 0.0f;
-					if (health->curr < 0.0f) {
+					if (health->curr <= 0.0f) {
 						context->game_over = true;
 
 					}
@@ -636,7 +645,6 @@ void system_sprite_render_camera(SDLContext* context, ITU_EntityId* entity_ids, 
 	sdl_set_render_draw_color(context, { 1, 0, 1, 1 });
 	SDL_RenderRect(context->renderer, NULL);
 }
-
 
 // ============================================================================================
 // COMPONENT DEBUG UI RENDER methods
@@ -983,10 +991,6 @@ static void game_reset(SDLContext* context)
 	SDL_Texture* texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
 	SDL_Texture* texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);
 	TTF_Font* font_bold = itu_sys_rstorage_font_get_ptr(0);
-	MIX_Audio* music_ptr = itu_sys_rstorage_audio_get_ptr(id_background_music);
-
-	if(music_ptr)
-		sys_audio_play_music(music_ptr, -1); // Loop indefinitely
 
 	free_map();
 	itu_sys_estorage_clear_all_entities();
@@ -1267,6 +1271,91 @@ static void game_reset(SDLContext* context)
 
 }
 
+
+// =============================================================
+// Menu UI
+// =============================================================
+
+void render_main_menu_ui(SDLContext* context, GameState* current_state, float* survival_time, bool* quit)
+{
+	// Center the menu
+	ImGui::SetNextWindowPos(ImVec2(context->window_w / 2.0f, context->window_h / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+
+	if (ImGui::Begin("Main Menu", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
+	{
+		ImGui::Text("Welcome to the never ending dungeon!");
+		ImGui::Spacing();
+		if (ImGui::Button("Start Game", ImVec2(200, 50)))
+		{
+			game_reset(context);
+
+			MIX_Audio* music_ptr = itu_sys_rstorage_audio_get_ptr(id_background_music);
+			if(music_ptr)
+			sys_audio_play_music(music_ptr, -1); // Loop indefinitely
+
+			*survival_time = 0.0f;
+			*current_state = STATE_PLAYING;
+		}
+		ImGui::Spacing();
+		if (ImGui::Button("Quit", ImVec2(200, 50)))
+		{
+			*quit = true;
+		}
+		ImGui::End();
+	}
+}
+
+void render_game_over_ui(SDLContext* context, GameState* current_state, float* survival_time, bool* quit)
+{
+	ImGui::SetNextWindowPos(ImVec2(context->window_w / 2.0f, context->window_h / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+
+	if (ImGui::Begin("Game Over", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
+	{
+		ImGui::TextColored(ImVec4(1, 0, 0, 1), "GAME OVER"); 
+		ImGui::Spacing();
+
+		ImGui::Text("You survived for %.2f seconds!", *survival_time);
+		ImGui::Spacing();
+
+		if (ImGui::Button("Retry", ImVec2(200, 50)))
+        {
+            game_reset(context);
+            *survival_time = 0.0f;
+            *current_state = STATE_PLAYING;
+        }
+
+        if (ImGui::Button("Return to Main Menu", ImVec2(200, 50)))
+        {
+            *current_state = STATE_MENU;
+        }
+        ImGui::End();
+	}
+
+}
+
+void gameplay_loop(SDLContext* context, GameState* current_state, float* round_timer)
+{
+	*round_timer += context->delta;
+
+	// Render and update game systems
+	render_background_void(context);
+	itu_sys_estorage_systems_update(context);
+
+	if (context->render_debug)
+	{
+		itu_sys_physics_debug_draw();
+	}
+
+	// Check for game over
+	if (context->game_over)
+    {
+        *current_state = STATE_GAMEOVER;
+        context->game_over = false; 
+		sys_audio_stop_music(NULL, 1000);
+		
+    }
+}
+
 int main(void)
 {
 	bool quit = false;
@@ -1336,13 +1425,9 @@ int main(void)
 	sdl_input_set_mapping_mouse(&context, 1, BTN_TYPE_UI_SELECT);
 	sdl_input_set_mapping_mouse(&context, 3, BTN_TYPE_UI_EXTRA);
 
+	GameState current_state = STATE_MENU;
 	while(!quit)
 	{
-		if (context.game_over){
-			game_reset(&context);
-			context.game_over = false;
-		}
-
 		quit = sdl_process_events(&context);
 
 		SDL_SetRenderDrawColor(context.renderer, 0x00, 0x00, 0x00, 0x00);
@@ -1350,10 +1435,20 @@ int main(void)
 		
 		itu_lib_imgui_frame_begin();
 
-		// update and render
-		render_background_void(&context);
-		itu_sys_estorage_systems_update(&context);
-		if (context.render_debug) itu_sys_physics_debug_draw();	
+		switch (current_state) 
+		{
+			case STATE_MENU:
+				render_main_menu_ui(&context, &current_state, &survival_time, &quit);
+				break;
+			case STATE_PLAYING:
+				gameplay_loop(&context, &current_state, &survival_time);
+				break;
+			case STATE_GAMEOVER:
+				render_game_over_ui(&context, &current_state, &survival_time, &quit);
+				break;
+			default:
+				break;
+		}
 
 #ifdef ENABLE_DIAGNOSTICS
 		{

@@ -21,6 +21,8 @@ struct AudioSystemContext
 
 void sys_audio_init(int tracks_count);
 void sys_audio_play_music(MIX_Audio* audio, Sint64 crossfade_duration_ms);
+void sys_audio_stop_music(MIX_Audio* audio, Sint64 fadeout_duration_ms);
+void sys_audio_stop_music_immediate(MIX_Audio* audio);
 void sys_audio_play_music_immediate(MIX_Audio* audio);
 void sys_audio_play_sfx(MIX_Audio* audio);
 void sys_audio_set_gain_master(float gain);
@@ -108,6 +110,27 @@ void sys_audio_play_music_immediate(MIX_Audio* audio)
     play_audio_track(sys_audio_ctx.track_music_ref, audio, sys_audio_ctx.gain_music, 0);
 }
 
+void sys_audio_stop_music(MIX_Audio* audio, Sint64 fadeout_duration_ms)
+{
+    if(sys_audio_ctx.track_music_ref == -1) return;
+
+    MIX_Track* track_fadeout = sys_audio_ctx.tracks[sys_audio_ctx.track_music_ref];
+    Sint64 fadeout_frames = MIX_TrackMSToFrames(track_fadeout, fadeout_duration_ms);
+    MIX_StopTrack(track_fadeout, fadeout_frames);
+    sys_audio_ctx.track_music_ref = -1;
+}
+
+void sys_audio_stop_music_immediate(MIX_Audio* audio)
+{
+    if(sys_audio_ctx.track_music_ref == -1) return;
+
+    MIX_Track* track_fadeout = sys_audio_ctx.tracks[sys_audio_ctx.track_music_ref];
+    MIX_StopTrack(track_fadeout, 0);
+    sys_audio_ctx.track_music_ref = -1;
+}
+
+
+
 void sys_audio_play_sfx(MIX_Audio* audio)
 {
     if(!audio) return;
@@ -136,5 +159,7 @@ void sys_audio_set_gain_sfx(float gain)
         MIX_SetTrackGain(sys_audio_ctx.tracks[i], gain);
     }
 }
+
+
 
 #endif // ITU_LIB_AUDIO_IMPLEMENTATION

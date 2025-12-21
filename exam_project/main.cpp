@@ -131,7 +131,7 @@ void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture)
 
     EnemyData ed = { 0 };
     ed.curr_speed_linear = 4;
-    Health enemy_health = { 3, 3 };
+    Health enemy_health = { 3, 3 , 1.0f, 0.0f };
 
     entity_add_component(enemy_id, Transform, transform);
     entity_add_component(enemy_id, PhysicsData, physics_data);
@@ -400,6 +400,24 @@ void system_enemy_ai(SDLContext* context, ITU_EntityId* entity_ids, int entity_i
 		if (!entity_get_isActive(id))
 			continue;
 
+
+		// Enemy hit flash logic
+		Health* health = entity_get_data(id, Health);
+		Sprite* sprite = entity_get_data(id, Sprite);
+
+		if(health) {
+			health->elapsed += context->delta;
+
+			// Flash red when hit
+			float flash_duration = 0.25f;
+			if (health->elapsed < flash_duration) {
+				sprite->tint = color{1.0f, 0.1f, 0.1f, 1.0f}; // Red
+			} else {
+				sprite->tint = color{1.0f, 1.0f, 1.0f, 1.0f}; // Normal
+			}
+		}
+
+		// Enemy movement towards player
 		EnemyData* enemy_data = entity_get_data(id, EnemyData);
 		Transform* transform = entity_get_data(id, Transform);
 		PhysicsData* physics_data = entity_get_data(id, PhysicsData);
@@ -515,6 +533,8 @@ void system_enemy_collision_events(SDLContext* context, ITU_EntityId* entity_ids
 			if (filter.categoryBits & BULLETS) {
 				Health* enemy_health = entity_get_data(id, Health);
 				enemy_health->curr -= 1;
+				enemy_health->elapsed = 0.0f;
+
 				if (enemy_health->curr <= 0.0f) {
 					PhysicsData* enemy_phys = entity_get_data(id,PhysicsData);
 					
@@ -833,6 +853,17 @@ void system_player_update(SDLContext* context, ITU_EntityId* entity_ids, int ent
 		PlayerData* data         = entity_get_data(id, PlayerData);
 		PhysicsData*    physics_data = entity_get_data(id, PhysicsData);
 		Sprite* sprite = entity_get_data(id, Sprite);
+		Health* health = entity_get_data(id, Health);
+
+		// No need to increment elapsed time here, done in collision system
+		health->elapsed += context->delta;
+		float flash_duration = 0.25f;
+		if (health->elapsed < flash_duration) {
+			sprite->tint = color{1.0f, 0.1f, 0.1f, 1.0f}; // Red
+		} else {
+			sprite->tint = color{1.0f, 1.0f, 1.0f, 1.0f}; // Normal
+		}
+
 
 		// Movement
 		vec2f move_dir = VEC2F_ZERO;

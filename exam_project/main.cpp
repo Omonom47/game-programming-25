@@ -1,4 +1,3 @@
-#include <config.hpp>
 #include <itu_unity_include.hpp>
 
 // ui colors
@@ -56,9 +55,11 @@ static ITU_IdAudio id_footsteps_sound[10];
 
 void create_goal(SDLContext* context, vec2f position)
 {
-	printf("Creating goal at position: (%f, %f)\n", position.x, position.y);
 	ITU_EntityId id = itu_entity_create();
+	#ifdef DEBUG
+	printf("Creating goal at position: (%f, %f)\n", position.x, position.y);
 	itu_entity_set_debug_name(id, "goal");
+	#endif
 
 	Transform transform = TRANSFORM_DEFAULT;
 	transform.position = position;
@@ -104,7 +105,9 @@ const float SPAWN_DISTANCE_FROM_PLAYER = 10.0f;
 void create_enemy(SDLContext* context, vec2f position, SDL_Texture* texture) 
 {
 	ITU_EntityId enemy_id = itu_entity_create();
+	#ifdef DEBUG
     itu_entity_set_debug_name(enemy_id, "enemy");
+	#endif
     Transform transform = TRANSFORM_DEFAULT;
     transform.position = position;
 
@@ -153,8 +156,10 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	capsule.radius = 0.15f;
 	ITU_EntityId id = itu_entity_create();
 	
-
+	#ifdef DEBUG
 	itu_entity_set_debug_name(id,"bullet");
+	#endif
+
 	Transform transform = TRANSFORM_DEFAULT;
 	transform.position = position;
 	// Calculate bullet rotation
@@ -304,7 +309,7 @@ void system_health(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids
 
 		if(!itu_entity_is_valid(renderer->target)) continue;
 		Health* health = entity_get_data(renderer->target, Health);
-		sprite->size.x = renderer->widget_base_w * (health->curr / health->max);
+		sprite->size.x = renderer->widget_base_w * (health->curr / (float)health->max);
 	}
 }
 
@@ -349,6 +354,7 @@ void destroyEntitiesScheduled() {
 		b2DestroyBody(body);
 		
 	}
+	alreadyHandled.clear();
 	bodiesScheduleForDeletion.clear();
 }
 
@@ -442,7 +448,7 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 		ShapeData* shape_data = entity_get_data(id, ShapeData);
 		b2ShapeId shape_id = shape_data->shape_id;
 
-		b2ContactData* contactData = new b2ContactData[10];
+		b2ContactData contactData[10];
 		int contact = b2Shape_GetContactData(shape_id, contactData, 10);
 		for (int j = 0; j < contact; ++j) {
 			b2ContactData contact_data = contactData[j];
@@ -471,6 +477,7 @@ void system_player_collision_events(SDLContext* context, ITU_EntityId* entity_id
 			}
 			
 		}
+
 	}
 
 }
@@ -485,7 +492,7 @@ void system_bullet_collision_events(SDLContext* context, ITU_EntityId* entity_id
 		ShapeData* shape_data = entity_get_data(id, ShapeData);
 		b2ShapeId bullet_id = shape_data->shape_id;
 
-		b2ContactData* contactData = new b2ContactData[10];
+		b2ContactData contactData[10];
 		int contact = b2Shape_GetContactData(bullet_id, contactData, 10);
 		if (contact > 0) {
 			entity_set_active(id, false);
@@ -507,7 +514,7 @@ void system_enemy_collision_events(SDLContext* context, ITU_EntityId* entity_ids
 		ShapeData* shape_data = entity_get_data(id, ShapeData);
 		b2ShapeId enemy_id = shape_data->shape_id;
 
-		b2ContactData* contactData = new b2ContactData[10];
+		b2ContactData contactData[10];
 		int contact = b2Shape_GetContactData(enemy_id, contactData, 10);
 		for (int j = 0; j < contact; ++j) {
 			b2ContactData contact_data = contactData[j];
@@ -704,6 +711,7 @@ void system_sprite_render_camera(SDLContext* context, ITU_EntityId* entity_ids, 
 	SDL_RenderRect(context->renderer, NULL);
 }
 
+#ifdef DEBUG
 // ============================================================================================
 // COMPONENT DEBUG UI RENDER methods
 // ============================================================================================
@@ -722,8 +730,8 @@ void debug_ui_render_health(SDLContext* context, void* data)
 {
 	Health* data_health = (Health*)data;
 
-	ImGui::DragFloat("max", &data_health->max);
-	ImGui::DragFloat("curr", &data_health->curr, 1, 0, data_health->max);
+	ImGui::DragInt("max", &data_health->max);
+	ImGui::DragInt("curr", &data_health->curr, 1, 0, data_health->max);
 }
 
 void debug_ui_render_healthrenderer(SDLContext* context, void* data)
@@ -802,7 +810,7 @@ void debug_ui_render_imagebutton(SDLContext* context, void* data)
 // ============================================================================================
 //  
 // ============================================================================================
-
+#endif
 
 void system_assign_player_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
@@ -897,11 +905,12 @@ void set_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f direction, ve
 	switch (pattern)
 		{
 			case SPREAD:
-				float angle; 
-				angle = DEG_2_RAD*60.0f;
+				float max_angle; 
+				max_angle = DEG_2_RAD*(15*bullet_amount+15);
 				float angle_between_shots;
-				angle_between_shots = (2*angle)/(float)bullet_amount;
-				angle_between_shots *= DEG_2_RAD;
+				angle_between_shots = max_angle/(float)(bullet_amount-1);
+				float angle;
+				angle = max_angle/2.0f;
 				int idx;
 				idx = 0;
 				if (is_odd(bullet_amount))
@@ -1011,9 +1020,11 @@ static void game_init(SDLContext* context)
 	enable_component(HealthRenderer);
 	enable_component(CooldownRenderer);
 	
+	#ifdef DEBUG
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
 	//TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
+	#endif
 
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "enemy");
@@ -1068,8 +1079,9 @@ static void game_reset(SDLContext* context)
 		
 			ITU_EntityId id_tilemap = itu_entity_create();
 			tilemaps[i] = id_tilemap;
+			#ifdef DEBUG
 			itu_entity_set_debug_name(id_tilemap, "tilemap");
-			
+			#endif
 			rooms[i].texture = texture_tiles;
 			rooms[i].tile_size = 16;
 			rooms[i].pivot = { 0.5f, 0.5f };
@@ -1108,8 +1120,10 @@ static void game_reset(SDLContext* context)
 						while (c + width < cols && is_solid_tile(tilemap->tile_ids[idx + width])) ++width;
 				
 						ITU_EntityId row_id = itu_entity_create();
+						#ifdef DEBUG
 						itu_entity_set_debug_name(row_id, "tile-collider");
-	
+						#endif
+
 						b2BodyDef tile_body_def = b2DefaultBodyDef();
 						tile_body_def.userData = value_cast(void*, row_id);
 						tile_body_def.type = b2_staticBody;
@@ -1166,7 +1180,9 @@ static void game_reset(SDLContext* context)
 	// player
 	{
 		id_player = itu_entity_create();
+		#ifdef DEBUG
 		itu_entity_set_debug_name(id_player, "player");
+		#endif
 		Transform transform = TRANSFORM_DEFAULT;
 		transform.position = context->player_start_position;
 
@@ -1220,7 +1236,9 @@ static void game_reset(SDLContext* context)
 	// healthbar
 	{
 		ITU_EntityId id = itu_entity_create();
+		#ifdef DEBUG
 		itu_entity_set_debug_name(id, "Player-Healthbar");
+		#endif
 		TransformScreen transform = { 0 };
 		transform.scale = VEC2F_ONE;
 		transform.position = { 20, 18 };
@@ -1247,7 +1265,9 @@ static void game_reset(SDLContext* context)
 	// weapon cooldown
 	{
 		ITU_EntityId id = itu_entity_create();
+		#ifdef DEBUG
 		itu_entity_set_debug_name(id, "Weapon-Cooldown");
+		#endif
 		TransformScreen transform = { 0 };
 		transform.scale = VEC2F_ONE;
 		transform.position = { 20, 40 };
@@ -1437,7 +1457,7 @@ int main(void)
 		
 		itu_lib_imgui_frame_begin();
 
-switch (current_state) 
+		switch (current_state) 
 		{
 			case STATE_MENU:
 				render_main_menu_ui(&context, &current_state, &survival_time, &quit);
@@ -1451,7 +1471,7 @@ switch (current_state)
 			default:
 				break;
 		}
-		
+
 #ifdef DEBUG
 #ifdef ENABLE_DIAGNOSTICS
 		{

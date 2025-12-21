@@ -34,8 +34,8 @@ register_component(EnemyData)
 
 struct Health
 {
-	float max;
-	float curr;
+	int max;
+	int curr;
 	float elapsed;
 	float grace_period;
 };

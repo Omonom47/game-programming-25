@@ -24,9 +24,11 @@ void fn_straight_shot(PhysicsData* pd, vec2f dir, float speed){
 	pd->velocity = dir * speed;
 }
 
+#ifdef DEBUG
 //Weapons for testing
 Weapon basic_weapon = { 1, 1, 1, 6, fn_straight_shot, STRAIGHT_AHEAD };
-Weapon basic_spread = { 5, 1, 1, 6, fn_straight_shot, SPREAD };
+Weapon basic_spread = { 4, 1, 1, 6, fn_straight_shot, SPREAD };
+#endif
 
 unsigned int damage_max_fn(int bullet_amount){
 	int max = 255;
@@ -66,7 +68,7 @@ Weapon generate_weapon(PRNG* engine){
 
 	ret.fn_bullet_behaviour = fn_straight_shot;
 	
-	if (is_odd(bullets) && is_odd(random_up_to(10,engine)))
+	if (bullets > 1)
 	{
 		ret.pattern = SPREAD;
 	}else

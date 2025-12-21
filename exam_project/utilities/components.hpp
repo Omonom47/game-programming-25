@@ -87,9 +87,15 @@ register_component(ImageButton)
 struct ShooterData
 {
 	Weapon weapon;
-	unsigned int bullet_count;
-	unsigned int next_bullet_idx;
 	float cooldown_left;
-	ITU_EntityId bullets[BULLET_POOL_SIZE];
 };
 register_component(ShooterData)
+
+struct BulletData
+{
+	unsigned int damage;
+	float speed;
+	vec2f direction;
+	BulletBehaviourUpdateFunction update_behaviour;
+};
+register_component(BulletData)

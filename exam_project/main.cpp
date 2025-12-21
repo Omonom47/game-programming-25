@@ -908,7 +908,6 @@ static void game_init(SDLContext* context)
 	add_system(system_tilemap_render				, component_mask(Transform) | component_mask(Tilemap)          , 0, true);
 	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ENEMY), false);
 	add_system(system_player_update             , component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData)  , 0, false);
-	add_system(system_sprite_render_camera      , component_mask(TransformScreen) | component_mask(Sprite)          , 0, true);
 	add_system(system_camera_target             , component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
 
 	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform),0,false);

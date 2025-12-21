@@ -148,7 +148,7 @@ int get_room_index_from_position(vec2f position) {
 }
 
 
-void system_maintain_enemey_population(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count) 
+void system_maintain_enemy_population(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count) 
 {
 	const int enemies_per_room = MAX_ENEMIES_PER_ROOM;
 	const float min_spawn_distance_sq = SPAWN_DISTANCE_FROM_PLAYER * SPAWN_DISTANCE_FROM_PLAYER;
@@ -472,6 +472,57 @@ void system_enemy_collision_events(SDLContext* context, ITU_EntityId* entity_ids
 // ============================================================================================
 // TMP methods
 // ============================================================================================
+
+void render_background_void(SDLContext* context)
+{
+	SDL_Texture* texture = itu_sys_rstorage_texture_get_ptr(0);
+	int wall_tile_id = tile_mapping[0];
+	int tile_size = PIXELS_PER_METER;
+
+	int tile_coord_x = wall_tile_id % TILESET_NUM_COLS;
+	int tile_coord_y = wall_tile_id / TILESET_NUM_COLS;
+
+	SDL_FRect rect_src;
+	rect_src.w = tile_size;
+	rect_src.h = tile_size;
+	rect_src.x = tile_coord_x * rect_src.w;
+	rect_src.y = tile_coord_y * rect_src.h;
+
+	// Calculate number of units fit on screen
+	float view_width = context->camera_active->normalized_screen_size.x / context->camera_active->zoom * context->window_w / context->camera_active->pixels_per_unit;
+	float view_height = context->camera_active->normalized_screen_size.y / context->camera_active->zoom * context->window_h / context->camera_active->pixels_per_unit;
+
+	vec2f camera_world_pos = context->camera_active->world_position;
+
+	// Calculate top left corner of the view in world coordinates
+	float start_x = camera_world_pos.x - view_width / 2.0f;
+	float start_y = camera_world_pos.y - view_height / 2.0f;
+
+	// Determine the bounds for tile rendering
+	int start_tile_x = (int)floor(start_x) - 1;
+	int end_tile_x = (int)ceil(start_x + view_width) + 1;
+
+	int start_tile_y = (int)floor(start_y) - 1;
+	int end_tile_y = (int)ceil(start_y + view_height) + 1;
+
+	// Render tiles within the calculated bounds
+	for (int y = start_tile_y; y < end_tile_y; ++y)
+	{
+		for (int x = start_tile_x; x < end_tile_x; ++x)
+		{	
+			// get destination rect based on current x and y
+			SDL_FRect rect_dst;
+			rect_dst.w = 1.0f;
+			rect_dst.h = 1.0f;
+			rect_dst.x = (float)x - 0.5f;
+			rect_dst.y = (float)y - 0.5f;
+			rect_dst = rect_global_to_screen(context, rect_dst);
+
+			// render tile
+			SDL_RenderTexture(context->renderer, texture, &rect_src, &rect_dst);
+		}
+	}
+}
 
 void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
@@ -923,7 +974,7 @@ static void game_init(SDLContext* context)
 	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0, false);
 	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0, false);
 	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
-	add_system(system_maintain_enemey_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
+	add_system(system_maintain_enemy_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
 }
 
 static void game_reset(SDLContext* context)
@@ -1299,11 +1350,9 @@ int main(void)
 		
 		itu_lib_imgui_frame_begin();
 
-		// update
+		// update and render
+		render_background_void(&context);
 		itu_sys_estorage_systems_update(&context);
-
-		// render
-		itu_sys_estorage_render_update(&context);
 		if (context.render_debug) itu_sys_physics_debug_draw();	
 
 #ifdef ENABLE_DIAGNOSTICS

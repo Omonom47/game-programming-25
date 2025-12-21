@@ -320,16 +320,26 @@ int get_distance_from_edge_to_open_area(int* grid, int rows, int cols, Point poi
     return 9999; // Penalty, as we didn't find an empty cell
 }
 
-void carve_path(int* grid, int rows, int cols, Point start, int length, Point dir) {
+void carve_path(int* grid, int rows, int cols, Point start, int length, Point dir, int padding) {
     int x = start.x;
     int y = start.y;
 
     for(int i = 0; i <= length; i++) {
-        if (!check_bounds(x, y, cols, rows)) {
-            break; // Stop if out of bounds, should not happen
+        int target_x = x;
+        int target_y = y;
+        for (int p = -padding; p <= padding; p++) {
+            if (dir.x != 0) {
+                target_y += p;
+            } else if (dir.y != 0) {
+                target_x += p;
+            }
+
+            if(check_bounds(target_x, target_y, cols, rows)) {
+                int idx = target_y * cols + target_x;
+                grid[idx] = EMPTY;
+            }
+             
         }
-        int idx = y * cols + x;
-        grid[idx] = EMPTY;
         x += dir.x;
         y += dir.y;
     }
@@ -392,8 +402,10 @@ void create_path_between_rooms(Map map, Tilemap* tilemaps, Point room_a, Point r
 
         int length_a = get_distance_from_edge_to_open_area(grid_a, rows, cols, path_point_a, scan_room_a_direction);
         int length_b = get_distance_from_edge_to_open_area(grid_b, rows, cols, path_point_b, scan_room_b_direction);
-        carve_path(grid_a, rows, cols, path_point_a, length_a, scan_room_a_direction);
-        carve_path(grid_b, rows, cols, path_point_b, length_b, scan_room_b_direction);
+
+        int padding = 1; // Carve a wider path
+        carve_path(grid_a, rows, cols, path_point_a, length_a, scan_room_a_direction, padding);
+        carve_path(grid_b, rows, cols, path_point_b, length_b, scan_room_b_direction, padding);
 
     }
 }

@@ -28,7 +28,8 @@ static bool is_tilemaps_filled = false;
 
 const int tile_mapping[] = {
 	40, // wall 
-	48 // floor 
+	48, // floor
+	42, // Alternate floor
 };
 
 const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
@@ -902,6 +903,7 @@ static void game_init(SDLContext* context)
 
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "enemy");
+	itu_sys_estorage_tag_set_debug_name(TAG_GOAL,"Goal");
 	
 	add_system(system_tilemap_render				, component_mask(Transform) | component_mask(Tilemap)          , 0, true);
 	add_system(system_assign_player_target      , component_mask(Transform), tag_mask(TAG_ENEMY), false);

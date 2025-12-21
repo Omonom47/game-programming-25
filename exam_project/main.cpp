@@ -50,7 +50,7 @@ static ITU_IdAudio id_footsteps_sound[10];
 
 
 // =============================================================
-// 	Goal post placement
+// 	Creation methods
 // =============================================================
 
 void create_goal(SDLContext* context, vec2f position)
@@ -92,10 +92,6 @@ void create_goal(SDLContext* context, vec2f position)
     itu_entity_tag_add(id, TAG_GOAL);
 
 }
-
-// =============================================================
-// Enemy and player placement
-// =============================================================
 
 static std::vector<vec2f> valid_spawn_locations;
 static std::vector<vec2f> room_spawn_locations[tilemap_count];
@@ -195,6 +191,9 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 
 	return id;
 }
+// =============================================================
+// 	
+// =============================================================
 
 int get_room_index_from_position(vec2f position) {
 	const float HALF_ROOM_WIDTH = ROOM_NUM_TILES_X / 2.0f;
@@ -384,8 +383,8 @@ std::tuple<vec2f, vec2f> tile_coordinate_to_world_position(Tilemap* tilemap, Tra
 	float width = transform->scale.x;
     float height = transform->scale.y;
 
-    float room_width = 30.0f * width;
-    float room_height = 30.0f * height;
+    float room_width = tilemap->num_cols * width;
+    float room_height = tilemap->num_rows * height;
 
     // Calculate centered position
     float x = transform->position.x + (tile_col + tile_offset) * width - (pivot.x * room_width);

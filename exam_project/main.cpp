@@ -205,13 +205,13 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 			Transform* transform = entity_get_data(id, Transform);
             PhysicsData* physics_data = entity_get_data(id, PhysicsData);
             BulletData* bullet_data = entity_get_data(id, BulletData);
-
+			position += data.direction * 0.25f;
 			transform->position = position;
 			
 			float bullet_angle = atan2(data.direction.y, data.direction.x);
             transform->rotation = bullet_angle - PI_HALF;
-
-			b2Body_SetTransform(physics_data->body_id, value_cast(b2Vec2, position), b2Rot{0, 1});
+			b2Rot rot = b2MakeRot(transform->rotation);
+			b2Body_SetTransform(physics_data->body_id, value_cast(b2Vec2, position), rot);
             b2Body_Enable(physics_data->body_id);
             b2Body_SetAwake(physics_data->body_id, true);
 			
@@ -224,10 +224,9 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	}
 	SDL_Texture *texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
 
-	b2Capsule capsule = { 0 };
-	capsule.center1 = b2Vec2{0,0.25F};
-	capsule.center2 = b2Vec2{0,-0.25F};
-	capsule.radius = 0.2f;
+	b2Circle circle = { 0 };
+	circle.center = b2Vec2{0,0.25F};
+	circle.radius = 0.22f;
 	ITU_EntityId id = itu_entity_create();
 	
 	#ifdef DEBUG
@@ -251,6 +250,8 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	body_def.userData = value_cast(void *, id);
 	body_def.isBullet = true;
 	body_def.rotation = b2MakeRot(transform.rotation);
+	body_def.isEnabled = false;
+	body_def.fixedRotation = true;
 	
 	pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
 	b2Body_SetUserData(pd.body_id,value_cast(void*, id));
@@ -260,7 +261,7 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	shape_def.enableContactEvents = true;
 	shape_def.filter.categoryBits = BULLETS;
 	shape_def.filter.maskBits = ENEMIES | WALLS;
-	shape_data.shape_id = b2CreateCapsuleShape(pd.body_id, &shape_def, &capsule);
+	shape_data.shape_id = b2CreateCircleShape(pd.body_id, &shape_def, &circle);
 
 	entity_add_component(id, Transform, transform);
 	entity_add_component(id, Sprite, sprite);
@@ -1422,9 +1423,6 @@ static void game_reset(SDLContext *context)
 	for(int i = 0; i < MIN_NUM_BULLETS; ++i) {
 		ITU_EntityId bullet_id = create_bullet(position, bullet_data);
 		entity_set_active(bullet_id, false);
-
-		PhysicsData* pd = entity_get_data(bullet_id, PhysicsData);
-		b2Body_Disable(pd->body_id);
 	}
 
 	SDL_Texture *texture = itu_sys_rstorage_texture_get_ptr(0);

@@ -32,6 +32,9 @@
 #define ROOM_NUM_TILES_Y 30
 #define MAX_ENEMIES_PER_ROOM 10
 
+const float SPAWN_DISTANCE_FROM_PLAYER = 10.0f;
+
+
 enum CollisionCategories{
     PLAYER = 0b00001,
     BULLETS = 0b00010,

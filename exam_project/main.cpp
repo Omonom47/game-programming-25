@@ -123,9 +123,6 @@ void create_goal(SDLContext *context, vec2f position)
 
 static std::vector<vec2f> valid_spawn_locations;
 static std::vector<vec2f> room_spawn_locations[tilemap_count];
-const int MAX_ENEMITES_PER_ROOM = 10;
-const float SPAWN_DISTANCE_FROM_PLAYER = 10.0f;
-
 void create_enemy(SDLContext *context, vec2f position, SDL_Texture *texture)
 {
 	ITU_EntityId enemy_id = itu_entity_create();
@@ -243,6 +240,14 @@ int get_room_index_from_position(vec2f position)
 
 void system_maintain_enemy_population(SDLContext *context, ITU_EntityId *entity_ids, int entity_ids_count)
 {
+	static float spawn_check_timer = 0.0f;
+	const float SPAWN_CHECK_INTERVAL = 3.0f;
+
+	spawn_check_timer += context->delta;
+
+	if(spawn_check_timer < SPAWN_CHECK_INTERVAL) return;
+	spawn_check_timer = 0.0f;
+
 	const int enemies_per_room = MAX_ENEMIES_PER_ROOM;
 	const float min_spawn_distance_sq = SPAWN_DISTANCE_FROM_PLAYER * SPAWN_DISTANCE_FROM_PLAYER;
 
@@ -1172,6 +1177,7 @@ static void game_reset(SDLContext *context)
 	{
 		// Clear previous valid spawn locations
 		valid_spawn_locations.clear();
+		valid_spawn_locations.shrink_to_fit();
 		Tilemap rooms[tilemap_count];
 		Map map = generate_map(rooms, 4, 4, tilemap_count, context->prng);
 
@@ -1338,6 +1344,25 @@ static void game_reset(SDLContext *context)
 		if (context->camera_active)
 		{
 			context->camera_active->world_position = transform.position;
+		}
+	}
+
+	// Enemies
+	{
+		SDL_Texture* texture = itu_sys_rstorage_texture_get_ptr(0);
+		
+		for(int i = 0; i < tilemap_count; ++i) {
+			if(room_spawn_locations[i].empty()) continue;
+
+			for(int count = 0; count < MAX_ENEMIES_PER_ROOM; ++count){
+				int rand_idx = random_up_to((int)room_spawn_locations[i].size(), context->prng);
+				vec2f candidate_position = room_spawn_locations[i][rand_idx];
+
+				const float min_spawn_distance_sq = 5.0f * 5.0f;
+				if(distance_sq(context->player_start_position, candidate_position) > min_spawn_distance_sq) {
+					create_enemy(context, candidate_position, texture);
+				}
+			}
 		}
 	}
 
@@ -1520,11 +1545,9 @@ int main(void)
 	context.camera_default.pixels_per_unit = CAMERA_PIXELS_PER_UNIT;
 	camera_set_active(&context, &context.camera_default);
 
-	// set debug UI shown by default (new and shiny, let's showcase it)
 	context.debug_ui_show = true;
 
 	game_init(&context);
-	game_reset(&context);
 
 	SDL_Time walltime_frame_beg;
 	SDL_Time walltime_frame_end;
@@ -1596,10 +1619,11 @@ int main(void)
 						ImGui::Separator();
 
 						ImGui::Text("Player position");
-						Transform *transform_player = entity_get_data(id_player, Transform);
-						ImGui::LabelText("x", "%f", transform_player->position.x);
-						ImGui::LabelText("y", "%f", transform_player->position.y);
-
+						if(itu_entity_is_valid(id_player)) {
+							Transform *transform_player = entity_get_data(id_player, Transform);
+							ImGui::LabelText("x", "%f", transform_player->position.x);
+							ImGui::LabelText("y", "%f", transform_player->position.y);
+						}
 						ImGui::Separator();
 
 						ImGui::Text("Starting position");

@@ -1106,7 +1106,7 @@ static void game_init(SDLContext *context)
 	itu_sys_rstorage_texture_load(context, "data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
 	itu_sys_rstorage_font_load(context, "data/ARIALBD.TTF", 42);
 
-	sys_audio_init(32);
+	sys_audio_init(8);
 	sys_audio_set_gain_music(0.8f); // Set volume
 
 	id_background_music = itu_sys_rstorage_audio_load(context, BACKGROUND_MUSIC, true);;

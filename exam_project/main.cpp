@@ -864,36 +864,6 @@ void debug_ui_render_imagebutton(SDLContext *context, void *data)
 // ============================================================================================
 #endif
 
-void system_assign_player_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
-{
-	if (!itu_entity_is_valid(id_player))
-		return;
-
-	PlayerData *player_data = entity_get_data(id_player, PlayerData);
-	Transform *player_transform = entity_get_data(id_player, Transform);
-	vec2f player_pos = player_transform->position;
-
-	ITU_EntityId id_closest = ITU_ENTITY_ID_NULL;
-	float closest_distance_sq = FLOAT_MAX_VAL;
-
-	for (int i = 0; i < entity_ids_count; ++i)
-	{
-		ITU_EntityId id = entity_ids[i];
-
-		Transform *transform = entity_get_data(id, Transform);
-
-		float curr_distance_sq = distance_sq(player_pos, transform->position);
-
-		if (curr_distance_sq < closest_distance_sq)
-		{
-			id_closest = id;
-			closest_distance_sq = curr_distance_sq;
-		}
-	}
-
-	player_data->target = id_closest;
-}
-
 void system_player_update(SDLContext *context, ITU_EntityId *entity_ids, int entity_ids_count)
 {
 	for (int i = 0; i < entity_ids_count; ++i)
@@ -1139,7 +1109,6 @@ static void game_init(SDLContext *context)
 	itu_sys_estorage_tag_set_debug_name(TAG_GOAL, "Goal");
 
 	add_system(system_tilemap_render, component_mask(Transform) | component_mask(Tilemap), 0, true);
-	add_system(system_assign_player_target, component_mask(Transform), tag_mask(TAG_ENEMY), false);
 	add_system(system_player_update, component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData), 0, false);
 	add_system(system_camera_target, component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
 
@@ -1184,6 +1153,7 @@ static void game_reset(SDLContext *context)
 		for (int i = 0; i < tilemap_count; ++i)
 		{
 			room_spawn_locations[i].clear();
+			room_spawn_locations[i].shrink_to_fit();
 			Point location = map.room_locations[i];
 
 			ITU_EntityId id_tilemap = itu_entity_create();
@@ -1684,4 +1654,9 @@ int main(void)
 		context.elapsed_frame = elapsed_frame;
 		walltime_frame_beg = walltime_frame_end;
 	}
+
+	SDL_DestroyRenderer(context.renderer);
+    SDL_DestroyWindow(context.window);
+    TTF_Quit();
+    SDL_Quit();
 }

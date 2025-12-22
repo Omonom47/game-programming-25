@@ -7,6 +7,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define ITU_LIB_AUDIO_IMPLEMENTATION
 
+#include <config.hpp>
+
 //Standard library includes
 #include <ctime>
 #include <random>

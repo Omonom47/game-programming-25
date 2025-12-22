@@ -1,4 +1,3 @@
-#include <config.hpp>
 #include <itu_unity_include.hpp>
 
 // ui colors
@@ -80,14 +79,16 @@ const char* BULLET_SOUND_PATHS[] = {
 static ITU_IdAudio id_bullet_sounds[std::size(BULLET_SOUND_PATHS)];
 
 // =============================================================
-// 	Goal post placement
+// 	Creation methods
 // =============================================================
 
 void create_goal(SDLContext *context, vec2f position)
 {
-	printf("Creating goal at position: (%f, %f)\n", position.x, position.y);
 	ITU_EntityId id = itu_entity_create();
+	#ifdef DEBUG
+	printf("Creating goal at position: (%f, %f)\n", position.x, position.y);
 	itu_entity_set_debug_name(id, "goal");
+	#endif
 
 	Transform transform = TRANSFORM_DEFAULT;
 	transform.position = position;
@@ -120,10 +121,6 @@ void create_goal(SDLContext *context, vec2f position)
 	itu_entity_tag_add(id, TAG_GOAL);
 }
 
-// =============================================================
-// Enemy and player placement
-// =============================================================
-
 static std::vector<vec2f> valid_spawn_locations;
 static std::vector<vec2f> room_spawn_locations[tilemap_count];
 const int MAX_ENEMITES_PER_ROOM = 10;
@@ -132,9 +129,11 @@ const float SPAWN_DISTANCE_FROM_PLAYER = 10.0f;
 void create_enemy(SDLContext *context, vec2f position, SDL_Texture *texture)
 {
 	ITU_EntityId enemy_id = itu_entity_create();
-	itu_entity_set_debug_name(enemy_id, "enemy");
-	Transform transform = TRANSFORM_DEFAULT;
-	transform.position = position;
+	#ifdef DEBUG
+    itu_entity_set_debug_name(enemy_id, "enemy");
+	#endif
+    Transform transform = TRANSFORM_DEFAULT;
+    transform.position = position;
 
 	Sprite sprite;
 	itu_lib_sprite_init(&sprite, texture, itu_lib_sprite_get_rect(0, 9, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
@@ -157,9 +156,10 @@ void create_enemy(SDLContext *context, vec2f position, SDL_Texture *texture)
 	ShapeData shape_data;
 	shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
-	EnemyData ed = {0};
-	ed.curr_speed_linear = 4;
-	Health enemy_health = {3, 3, 1.0f, 0.0f};
+    EnemyData ed = { 0 };
+    ed.curr_speed_linear = 4;
+	int max_health = 100;
+    Health enemy_health = { max_health, max_health , 1.0f, 0.0f };
 
 	entity_add_component(enemy_id, Transform, transform);
 	entity_add_component(enemy_id, PhysicsData, physics_data);
@@ -179,8 +179,11 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	capsule.center2 = b2Vec2_zero;
 	capsule.radius = 0.15f;
 	ITU_EntityId id = itu_entity_create();
+	
+	#ifdef DEBUG
+	itu_entity_set_debug_name(id,"bullet");
+	#endif
 
-	itu_entity_set_debug_name(id, "bullet");
 	Transform transform = TRANSFORM_DEFAULT;
 	transform.position = position;
 	// Calculate bullet rotation
@@ -197,8 +200,10 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	body_def.position = value_cast(b2Vec2, transform.position);
 	body_def.userData = value_cast(void *, id);
 	body_def.isBullet = true;
-	pd.body_id = itu_sys_physics_add_body(value_cast(void *, id), &body_def);
-
+	
+	pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
+	b2Body_SetUserData(pd.body_id,value_cast(void*, id));
+	
 	ShapeData shape_data;
 	b2ShapeDef shape_def = b2DefaultShapeDef();
 	shape_def.enableContactEvents = true;
@@ -214,6 +219,9 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 
 	return id;
 }
+// =============================================================
+// 	
+// =============================================================
 
 int get_room_index_from_position(vec2f position)
 {
@@ -332,10 +340,9 @@ void system_health(SDLContext *context, ITU_EntityId *entity_ids, int entity_ids
 		HealthRenderer *renderer = entity_get_data(id, HealthRenderer);
 		Sprite9Patch *sprite = entity_get_data(id, Sprite9Patch);
 
-		if (!itu_entity_is_valid(renderer->target))
-			continue;
-		Health *health = entity_get_data(renderer->target, Health);
-		sprite->size.x = renderer->widget_base_w * (health->curr / health->max);
+		if(!itu_entity_is_valid(renderer->target)) continue;
+		Health* health = entity_get_data(renderer->target, Health);
+		sprite->size.x = renderer->widget_base_w * (health->curr / (float)health->max);
 	}
 }
 
@@ -381,6 +388,7 @@ void destroyEntitiesScheduled()
 		entity_set_active(entity_id, false);
 		b2DestroyBody(body);
 	}
+	alreadyHandled.clear();
 	bodiesScheduleForDeletion.clear();
 }
 
@@ -413,8 +421,8 @@ std::tuple<vec2f, vec2f> tile_coordinate_to_world_position(Tilemap *tilemap, Tra
 	float width = transform->scale.x;
 	float height = transform->scale.y;
 
-	float room_width = 30.0f * width;
-	float room_height = 30.0f * height;
+    float room_width = tilemap->num_cols * width;
+    float room_height = tilemap->num_rows * height;
 
 	// Calculate centered position
 	float x = transform->position.x + (tile_col + tile_offset) * width - (pivot.x * room_width);
@@ -478,7 +486,7 @@ void system_player_collision_events(SDLContext *context, ITU_EntityId *entity_id
 		ShapeData *shape_data = entity_get_data(id, ShapeData);
 		b2ShapeId shape_id = shape_data->shape_id;
 
-		b2ContactData *contactData = new b2ContactData[10];
+		b2ContactData contactData[10];
 		int contact = b2Shape_GetContactData(shape_id, contactData, 10);
 		for (int j = 0; j < contact; ++j)
 		{
@@ -516,6 +524,7 @@ void system_player_collision_events(SDLContext *context, ITU_EntityId *entity_id
 				}
 			}
 		}
+
 	}
 }
 
@@ -530,7 +539,7 @@ void system_bullet_collision_events(SDLContext *context, ITU_EntityId *entity_id
 		ShapeData *shape_data = entity_get_data(id, ShapeData);
 		b2ShapeId bullet_id = shape_data->shape_id;
 
-		b2ContactData *contactData = new b2ContactData[10];
+		b2ContactData contactData[10];
 		int contact = b2Shape_GetContactData(bullet_id, contactData, 10);
 		if (contact > 0)
 		{
@@ -557,7 +566,7 @@ void system_enemy_collision_events(SDLContext *context, ITU_EntityId *entity_ids
 		ShapeData *shape_data = entity_get_data(id, ShapeData);
 		b2ShapeId enemy_id = shape_data->shape_id;
 
-		b2ContactData *contactData = new b2ContactData[10];
+		b2ContactData contactData[10];
 		int contact = b2Shape_GetContactData(enemy_id, contactData, 10);
 		for (int j = 0; j < contact; ++j)
 		{
@@ -567,10 +576,13 @@ void system_enemy_collision_events(SDLContext *context, ITU_EntityId *entity_ids
 			b2Filter filter = b2Shape_GetFilter(other_id);
 
 			// Handle collision with bullets
-			if (filter.categoryBits & BULLETS)
-			{
-				Health *enemy_health = entity_get_data(id, Health);
-				enemy_health->curr -= 1;
+			if (filter.categoryBits & BULLETS) {
+				Health* enemy_health = entity_get_data(id, Health);
+				void* user_data = b2Body_GetUserData(b2Shape_GetBody(other_id));
+				ITU_EntityId bullet_id = value_cast(ITU_EntityId,user_data);
+				BulletData* bullet = entity_get_data(bullet_id,BulletData);
+
+				enemy_health->curr -= bullet->damage;
 				enemy_health->elapsed = 0.0f;
 
 				if (enemy_health->curr <= 0.0f)
@@ -748,6 +760,7 @@ void system_sprite_render_camera(SDLContext *context, ITU_EntityId *entity_ids, 
 	SDL_RenderRect(context->renderer, NULL);
 }
 
+#ifdef DEBUG
 // ============================================================================================
 // COMPONENT DEBUG UI RENDER methods
 // ============================================================================================
@@ -766,8 +779,8 @@ void debug_ui_render_health(SDLContext *context, void *data)
 {
 	Health *data_health = (Health *)data;
 
-	ImGui::DragFloat("max", &data_health->max);
-	ImGui::DragFloat("curr", &data_health->curr, 1, 0, data_health->max);
+	ImGui::DragInt("max", &data_health->max);
+	ImGui::DragInt("curr", &data_health->curr, 1, 0, data_health->max);
 }
 
 void debug_ui_render_healthrenderer(SDLContext *context, void *data)
@@ -844,8 +857,9 @@ void debug_ui_render_imagebutton(SDLContext *context, void *data)
 // ============================================================================================
 //
 // ============================================================================================
+#endif
 
-void system_assign_player_target(SDLContext *context, ITU_EntityId *entity_ids, int entity_ids_count)
+void system_assign_player_target(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	if (!itu_entity_is_valid(id_player))
 		return;
@@ -964,41 +978,52 @@ void system_health_update(SDLContext *context, ITU_EntityId *entity_ids, int ent
 	}
 }
 
-void set_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f direction, vec2f *out)
-{
+float calculate_max_angle(int bullet_amount){
+	int ba_sqrd = bullet_amount*bullet_amount;
 
+	float angle = ba_sqrd*bullet_amount;
+	angle /= 8.0f;
+	angle -= ba_sqrd/4.0f;
+	angle += bullet_amount << 3;
+	angle += 15.0f;
+	return angle;
+}
+
+void set_bullet_dirs(ShotPattern pattern, int bullet_amount, vec2f direction, vec2f* out){
+	
 	switch (pattern)
-	{
-	case SPREAD:
-		float angle;
-		angle = DEG_2_RAD * 60.0f;
-		float angle_between_shots;
-		angle_between_shots = (2 * angle) / (float)bullet_amount;
-		angle_between_shots *= DEG_2_RAD;
-		int idx;
-		idx = 0;
-		if (is_odd(bullet_amount))
 		{
-			out[idx++] = direction;
+			case SPREAD:
+				float max_angle; 
+				max_angle = DEG_2_RAD *calculate_max_angle(bullet_amount);
+				float angle_between_shots;
+				angle_between_shots = max_angle/(float)(bullet_amount-1);
+				float angle;
+				angle = max_angle/2.0f;
+				int idx;
+				idx = 0;
+				if (is_odd(bullet_amount))
+				{
+					out[idx++] = direction;
+				}
+				
+				while (idx < bullet_amount)
+				{
+					vec2f new_dir = rotate(direction,angle);
+					
+					vec2f reflected = reflect(-new_dir,direction);	
+
+					out[idx++] = normalize(new_dir);
+					out[idx++] = normalize(reflected);
+
+					angle -= angle_between_shots;
+				}
+				
+			break;
+		
+		default:
+			break;
 		}
-
-		while (idx < bullet_amount)
-		{
-			vec2f new_dir = rotate(direction, angle);
-
-			vec2f reflected = reflect(-new_dir, direction);
-
-			out[idx++] = normalize(new_dir);
-			out[idx++] = normalize(reflected);
-
-			angle -= angle_between_shots;
-		}
-
-		break;
-
-	default:
-		break;
-	}
 }
 
 void system_player_shooting(SDLContext *context, ITU_EntityId *entity_ids, int entity_ids_count)
@@ -1097,10 +1122,12 @@ static void game_init(SDLContext *context)
 	enable_component(Sprite9Patch);
 	enable_component(HealthRenderer);
 	enable_component(CooldownRenderer);
-
+	
+	#ifdef DEBUG
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
-	// TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
+	//TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
+	#endif
 
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "enemy");
@@ -1141,9 +1168,7 @@ static void game_reset(SDLContext *context)
 	world_def.gravity.y = 0; // Since top-down there is no gravity (anything falling downwards)
 	itu_sys_physics_reset(&world_def);
 
-	SDL_assert(ENTITY_COUNT <= ENTITIES_COUNT_MAX);
-
-	// tilemaps
+	//tilemaps
 	{
 		// Clear previous valid spawn locations
 		valid_spawn_locations.clear();
@@ -1157,8 +1182,9 @@ static void game_reset(SDLContext *context)
 
 			ITU_EntityId id_tilemap = itu_entity_create();
 			tilemaps[i] = id_tilemap;
+			#ifdef DEBUG
 			itu_entity_set_debug_name(id_tilemap, "tilemap");
-
+			#endif
 			rooms[i].texture = texture_tiles;
 			rooms[i].tile_size = 16;
 			rooms[i].pivot = {0.5f, 0.5f};
@@ -1201,7 +1227,9 @@ static void game_reset(SDLContext *context)
 							++width;
 
 						ITU_EntityId row_id = itu_entity_create();
+						#ifdef DEBUG
 						itu_entity_set_debug_name(row_id, "tile-collider");
+						#endif
 
 						b2BodyDef tile_body_def = b2DefaultBodyDef();
 						tile_body_def.userData = value_cast(void *, row_id);
@@ -1259,7 +1287,9 @@ static void game_reset(SDLContext *context)
 	// player
 	{
 		id_player = itu_entity_create();
+		#ifdef DEBUG
 		itu_entity_set_debug_name(id_player, "player");
+		#endif
 		Transform transform = TRANSFORM_DEFAULT;
 		transform.position = context->player_start_position;
 
@@ -1289,14 +1319,19 @@ static void game_reset(SDLContext *context)
 		ShapeData shape_data;
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
-		Health player_health = {10, 10, 1, 1}; // max, current, elapsed, grace_period
-
-		entity_add_component(id_player, Transform, transform);
-		entity_add_component(id_player, Sprite, sprite);
+		Health player_health = { 10, 10, 1, 1 }; //max, current, elapsed, grace_period
+		
+		ShooterData shooter;
+		shooter.weapon = generate_weapon(context->prng);
+		shooter.cooldown_left = 0;
+		
+		entity_add_component(id_player, Transform     , transform);
+		entity_add_component(id_player, Sprite        , sprite);
 		entity_add_component(id_player, PlayerData, data);
-		entity_add_component(id_player, PhysicsData, physics_data);
-		entity_add_component(id_player, ShapeData, shape_data);
-		entity_add_component(id_player, Health, player_health);
+		entity_add_component(id_player, PhysicsData   , physics_data);
+		entity_add_component(id_player, ShapeData     , shape_data);
+		entity_add_component(id_player, Health        , player_health);
+		entity_add_component(id_player,ShooterData,shooter);
 		itu_entity_tag_add(id_player, TAG_CAMERA_TARGET);
 
 		// Set camera to player
@@ -1306,17 +1341,13 @@ static void game_reset(SDLContext *context)
 		}
 	}
 
-	ShooterData shooter;
-	shooter.weapon = basic_weapon; // generate_weapon(context->prng);
-	shooter.cooldown_left = 0;
-
-	entity_add_component(id_player, ShooterData, shooter);
-
 	// healthbar
 	{
 		ITU_EntityId id = itu_entity_create();
+		#ifdef DEBUG
 		itu_entity_set_debug_name(id, "Player-Healthbar");
-		TransformScreen transform = {0};
+		#endif
+		TransformScreen transform = { 0 };
 		transform.scale = VEC2F_ONE;
 		transform.position = {20, 18};
 
@@ -1342,8 +1373,10 @@ static void game_reset(SDLContext *context)
 	// weapon cooldown
 	{
 		ITU_EntityId id = itu_entity_create();
+		#ifdef DEBUG
 		itu_entity_set_debug_name(id, "Weapon-Cooldown");
-		TransformScreen transform = {0};
+		#endif
+		TransformScreen transform = { 0 };
 		transform.scale = VEC2F_ONE;
 		transform.position = {20, 40};
 
@@ -1543,6 +1576,7 @@ int main(void)
 			break;
 		}
 
+#ifdef DEBUG
 #ifdef ENABLE_DIAGNOSTICS
 		{
 			// ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4 { 33/255.0f, 33/255.0f, 33/255.0f, 255/255.0f });
@@ -1602,6 +1636,7 @@ int main(void)
 				ImGui::End();
 			}
 		}
+#endif
 #endif
 		// Destroy scheduled entites
 		destroyEntitiesScheduled();

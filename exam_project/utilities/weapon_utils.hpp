@@ -24,9 +24,11 @@ void fn_straight_shot(PhysicsData* pd, vec2f dir, float speed){
 	pd->velocity = dir * speed;
 }
 
+#ifdef DEBUG
 //Weapons for testing
 Weapon basic_weapon = { 1, 1, 1, 6, fn_straight_shot, STRAIGHT_AHEAD };
-Weapon basic_spread = { 3, 1, 1, 6, fn_straight_shot, SPREAD };
+Weapon basic_spread = { 4, 1, 1, 6, fn_straight_shot, SPREAD };
+#endif
 
 unsigned int damage_max_fn(int bullet_amount){
 	int max = 255;
@@ -38,12 +40,12 @@ unsigned int damage_max_fn(int bullet_amount){
 }
 
 unsigned int damage_min_fn(int bullet_amount){
-	return -3*bullet_amount + 25;
+	return 56/bullet_amount;
 }
 
 float cooldown_floor_fn(int damage){
 	float min = 0.3f;
-	min += (damage/10)*0.12f;
+	min += (damage/15)*0.12f;
 	return min;
 }
 
@@ -58,7 +60,7 @@ Weapon generate_weapon(PRNG* engine){
 	ret.damage = damage;
 
 	float min_cooldown = cooldown_floor_fn(damage*bullets);
-	float cooldown = random_float_in_range(min_cooldown,2.6f,engine);
+	float cooldown = random_float_in_range(min_cooldown,2.2f,engine);
 	ret.cooldown = cooldown;
 
 	float speed = random_float_in_range(6,10,engine);
@@ -66,11 +68,14 @@ Weapon generate_weapon(PRNG* engine){
 
 	ret.fn_bullet_behaviour = fn_straight_shot;
 	
-	if (is_odd(bullets) && is_odd(random_up_to(10,engine)))
+	if (bullets > 1)
 	{
 		ret.pattern = SPREAD;
 	}else
 		ret.pattern = STRAIGHT_AHEAD;
-	
+
+#ifdef DEBUG
+	printf("Weapon:\n bullets: %d\n damage: %d\n cooldown: %f\n speed: %f\n", bullets,damage,cooldown, speed);
+#endif
 	return ret;
 }

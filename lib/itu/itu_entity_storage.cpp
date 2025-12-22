@@ -1,6 +1,11 @@
 ﻿#ifndef ITU_UNITY_BUILD
+#include <config.hpp>
 #include <itu_entity_storage.hpp>
 #include <imgui/imgui.h>
+#include <utilities/components.hpp>
+#include <itu_lib_sprite.hpp>
+#include <itu_default_systems.cpp>
+#include <itu_lib_debug_ui.hpp>
 #endif
 
 struct ITU_Component
@@ -16,7 +21,9 @@ struct ITU_Component
 	ITU_EntityId* entity_ids; // maps data array location to an EntityId
 	void*         data;
 
+	#ifdef DEBUG
 	ITU_ComponendDebugUIRender fn_debug_ui_render;
+	#endif
 };
 
 struct ITU_ComponentTagStorage
@@ -70,9 +77,11 @@ struct ITU_EntityStorageContext
 	ITU_System render_systems[SYSTEMS_COUNT_MAX];
 	int render_systems_count;
 
+	#ifdef DEBUG
 	// debug properties
 	stbds_hm(ITU_EntityId, char*) entities_debug_names;
 	stbds_hm(Sint32, const char*) tag_debug_names;
+	#endif
 };
 
 static ITU_ComponentType component_type_counter;
@@ -109,215 +118,23 @@ ITU_Component* itu_component_pool_create(Uint64 element_size, Uint64 total_num_c
 	ret->data_loc   = pointer_offset(Uint64, ret, size_metadata);                 // first array starts at the end of the metadata
 	ret->entity_ids = pointer_offset(ITU_EntityId, ret->data_loc, size_data_loc); // second array starts at the end of first array
 	ret->data       = pointer_offset(void, ret->entity_ids, size_entity_ids);     // third array starts at the end of second array
-
+	#ifdef DEBUG
 	ret->fn_debug_ui_render = NULL;
+	#endif
 
 	return ret;
 }
 
 ITU_ComponentType itu_sys_estorage_add_component_pool(Uint64 element_size, Uint64 total_num_component, ITU_ComponentType* ref_component_type, const char* component_name);
-void itu_sys_estorage_add_component_debug_ui_render(ITU_ComponentType component_type, ITU_ComponendDebugUIRender fn_debug_ui_render)
-;
+void itu_sys_estorage_add_component_debug_ui_render(ITU_ComponentType component_type, ITU_ComponendDebugUIRender fn_debug_ui_render);
 
-void itu_sys_estorage_init(int starting_entities_count, bool enable_standard_components=true)
-{
-	// allocate a minimum of elements at initialization time, to minimize early reallocs
-	stbds_arrsetlen(ctx_estorage.entities, starting_entities_count);
-	//stbds_hmset(ctx_estorage.entities_debug_names, starting_entities_count);
-
-	if(enable_standard_components)
-	{
-		enable_component(Transform);
-		enable_component(Sprite);
-		enable_component(PhysicsData);
-		enable_component(PhysicsStaticData);
-		enable_component(ShapeData);
-
-		add_component_debug_ui_render(ShapeData, itu_debug_ui_render_shapedata);
-		add_component_debug_ui_render(Transform, itu_debug_ui_render_transform);
-		add_component_debug_ui_render(Sprite, itu_debug_ui_render_sprite);
-		add_component_debug_ui_render(PhysicsData, itu_debug_ui_render_physicsdata);
-		add_component_debug_ui_render(PhysicsStaticData, itu_debug_ui_render_physicsstaticdata);
-
-		add_system(itu_system_physics       , component_mask(PhysicsData)                                  , 0, false);
-		//add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0);
-	}
-}
-
-ITU_ComponentType itu_sys_estorage_add_component_pool(Uint64 element_size, Uint64 total_num_component, ITU_ComponentType* ref_component_type, const char* component_name)
-{
-	ITU_Component* pool = itu_component_pool_create(element_size, total_num_component, component_name);
-	pool->type = ctx_estorage.components_count++;
-	ctx_estorage.components[pool->type] = pool;
-
-	// make component type globally available
-	*ref_component_type = pool->type;
-
-	return pool->type;
-}
+#ifdef DEBUG
+enum ITU_SysEstorageDebugDetailCategory { ITU_SYS_ESTORAGE_DETAIL_CATEGORY_ENTITY, ITU_SYS_ESTORAGE_DETAIL_CATEGORY_SYSTEM, ITU_SYS_ESTORAGE_DETAIL_CATEGORY_MAX };
 
 void itu_sys_estorage_add_component_debug_ui_render(ITU_ComponentType component_type, ITU_ComponendDebugUIRender fn_debug_ui_render)
 {
 	ctx_estorage.components[component_type]->fn_debug_ui_render = fn_debug_ui_render;
 }
-
-void itu_sys_estorage_clear_all_entities()
-{
-	for(int i = 0; i < ctx_estorage.components_count; ++i) {
-		itu_component_pool_clear(ctx_estorage.components[i]);
-	}
-	for (int i = 0; i < TAGS_COUNT_MAX; ++i) {
-		ctx_estorage.tags[i] = NULL;
-	}
-	stbds_arrfree(ctx_estorage.entities);
-	stbds_arrfree(ctx_estorage.entities_free);
-}
-
-void itu_sys_estorage_set_systems(ITU_SystemDef* systems, int systems_count)
-{
-	SDL_assert(systems_count <= SYSTEMS_COUNT_MAX);
-
-	ctx_estorage.systems_count = systems_count;
-	for(int i = 0; i < systems_count; ++i)
-	{
-		ITU_System* system_runtime = &ctx_estorage.systems[i];
-		ITU_SystemDef* system_def  = &systems[i];
-
-		// build component pool pointers (this requires component pools to be alredy set up)
-		for(int j = 0; j < COMPONENTS_COUNT_MAX; ++j)
-		{
-			Uint64 component_bitmask = 1ll << j;
-			if(system_def->component_mask & component_bitmask)
-				system_runtime->components[system_runtime->components_count++] = ctx_estorage.components[j];
-		}
-		for(int j = 0; j < TAGS_COUNT_MAX; ++j)
-		{
-			Uint64 tag_bitmask = 1ll << j;
-			if(system_def->tag_mask & tag_bitmask)
-				system_runtime->tags[system_runtime->tags_count++] = j;
-		}
-		system_runtime->fn_update = system_def->fn_update;
-		system_runtime->name = system_def->name;
-	}
-}
-
-void itu_sys_estorage_add_system(ITU_SystemDef system_def, bool is_render_system)
-{
-	if(ctx_estorage.systems_count == SYSTEMS_COUNT_MAX)
-	{
-		SDL_Log("WARNING maximum number of systes reached");
-		return;
-	}
-
-	ITU_System* system_runtime;
-
-	if (!is_render_system) {
-		system_runtime = &ctx_estorage.systems[ctx_estorage.systems_count++];
-	} else {
-		system_runtime = &ctx_estorage.render_systems[ctx_estorage.render_systems_count++];
-	}
-
-	// build component pool pointers (this requires component pools to be alredy set up)
-	for(int j = 0; j < COMPONENTS_COUNT_MAX; ++j)
-	{
-		Uint64 component_bitmask = 1ll << j;
-		if(system_def.component_mask & component_bitmask)
-			system_runtime->components[system_runtime->components_count++] = ctx_estorage.components[j];
-	}
-	for(int j = 0; j < TAGS_COUNT_MAX; ++j)
-	{
-		Uint64 tag_bitmask = 1ll << j;
-		if(system_def.tag_mask & tag_bitmask)
-			system_runtime->tags[system_runtime->tags_count++] = j;
-	}
-	system_runtime->fn_update = system_def.fn_update;
-	system_runtime->name = system_def.name;
-}
-
-
-int itu_system_get_matching_entities(ITU_System* system, ITU_EntityId* out_entitiy_group)
-{
-	ITU_EntityId* min_component;
-	Uint64  min_component_size = ENTITIES_COUNT_MAX + 1;
-	int system_ids_count = 0;
-
-	for(int j = 0; j < system->components_count; ++j)
-		if(system->components[j]->count_alive < min_component_size)
-		{
-			min_component = system->components[j]->entity_ids;
-			min_component_size = system->components[j]->count_alive;
-		}
-
-	for(int j = 0; j < system->tags_count; ++j)
-	{
-		auto tmp = ctx_estorage.tags[system->tags[j]];
-		if(!tmp)
-			continue;
-		if(stbds_hmlen(tmp) < min_component_size)
-		{
-			min_component = (ITU_EntityId*)tmp;
-			min_component_size = stbds_hmlen(tmp);
-		}
-	}
-
-	// filter entities
-	for(int k = 0; k < min_component_size; ++k)
-	{
-		ITU_EntityId entity_curr = min_component[k];
-		bool filter_out = !entity_get_isActive(entity_curr);
-		for(int j = 0; j < system->components_count; ++j)
-		{
-			ITU_Component* filtered_component = system->components[j];
-
-			if(filtered_component->data_loc[entity_curr.index] == -1)
-			{
-				filter_out = true;
-				break;
-			}
-		}
-
-		for(int j = 0; j < system->tags_count; ++j)
-		{
-			ITU_TagType filtered_tag = system->tags[j];
-				
-			if(stbds_hmgeti(ctx_estorage.tags[filtered_tag], entity_curr) == -1)
-			{
-				filter_out = true;
-				break;
-			}
-		}
-		if(!filter_out)
-			out_entitiy_group[system_ids_count++] = entity_curr;
-	}
-
-	return system_ids_count;
-}
-
-void itu_sys_estorage_systems_update(SDLContext* context)
-{
-	for(int i = 0; i < ctx_estorage.systems_count; ++i)
-	{
-		ITU_System* system = &ctx_estorage.systems[i];
-		ITU_EntityId system_ids[ENTITIES_COUNT_MAX];
-		int system_ids_count = itu_system_get_matching_entities(system, system_ids);
-
-		system->fn_update(context, system_ids, system_ids_count);
-	}
-}
-
-void itu_sys_estorage_render_update(SDLContext* context)
-{
-	for(int i = 0; i < ctx_estorage.render_systems_count; ++i)
-	{
-		ITU_System* system = &ctx_estorage.render_systems[i];
-		ITU_EntityId system_ids[ENTITIES_COUNT_MAX];
-		int system_ids_count = itu_system_get_matching_entities(system, system_ids);
-
-		system->fn_update(context, system_ids, system_ids_count);
-	}
-}
-
-enum ITU_SysEstorageDebugDetailCategory { ITU_SYS_ESTORAGE_DETAIL_CATEGORY_ENTITY, ITU_SYS_ESTORAGE_DETAIL_CATEGORY_SYSTEM, ITU_SYS_ESTORAGE_DETAIL_CATEGORY_MAX };
 
 void itu_sys_estorage_debug_render_detail_entity(SDLContext* context, ITU_EntityId id)
 {
@@ -556,6 +373,220 @@ void itu_sys_estorage_tag_set_debug_name(int tag, const char* tag_debug_name)
 	stbds_hmput(ctx_estorage.tag_debug_names, tag, tag_debug_name);
 }
 
+void itu_debug_ui_widget_entityid(const char* label, ITU_EntityId id)
+{
+	if(!itu_entity_is_valid(id))
+		ImGui::LabelText(label, "INVALID ENTITY");
+	else
+		ImGui::LabelText(label, "%s (%d, %d)", ctx_estorage.entities_debug_names[id.index].value, id.generation, id.index);
+}
+
+void  itu_entity_set_debug_name(ITU_EntityId id, const char* debug_name)
+{
+	// NOTE: allocating every single name is BAD, but we haven't looked in allocaiton startegies and memory arenas yet
+	int len = SDL_strlen(debug_name);
+	char* name_storage = (char*)SDL_malloc(len + 1);
+	SDL_memcpy(name_storage, debug_name, len);
+	name_storage[len] = 0;
+
+	stbds_hmput(ctx_estorage.entities_debug_names, id, name_storage);
+}
+#endif
+
+void itu_sys_estorage_init(int starting_entities_count, bool enable_standard_components=true)
+{
+	// allocate a minimum of elements at initialization time, to minimize early reallocs
+	stbds_arrsetlen(ctx_estorage.entities, starting_entities_count);
+
+	if(enable_standard_components)
+	{
+		enable_component(Transform);
+		enable_component(Sprite);
+		enable_component(PhysicsData);
+		enable_component(PhysicsStaticData);
+		enable_component(ShapeData);
+
+		#ifdef DEBUG
+		add_component_debug_ui_render(ShapeData, itu_debug_ui_render_shapedata);
+		add_component_debug_ui_render(Transform, itu_debug_ui_render_transform);
+		add_component_debug_ui_render(Sprite, itu_debug_ui_render_sprite);
+		add_component_debug_ui_render(PhysicsData, itu_debug_ui_render_physicsdata);
+		add_component_debug_ui_render(PhysicsStaticData, itu_debug_ui_render_physicsstaticdata);
+		#endif
+
+		add_system(itu_system_physics       , component_mask(PhysicsData)                                  , 0, false);
+		//add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0);
+	}
+}
+
+ITU_ComponentType itu_sys_estorage_add_component_pool(Uint64 element_size, Uint64 total_num_component, ITU_ComponentType* ref_component_type, const char* component_name)
+{
+	ITU_Component* pool = itu_component_pool_create(element_size, total_num_component, component_name);
+	pool->type = ctx_estorage.components_count++;
+	ctx_estorage.components[pool->type] = pool;
+
+	// make component type globally available
+	*ref_component_type = pool->type;
+
+	return pool->type;
+}
+
+void itu_sys_estorage_clear_all_entities()
+{
+	for(int i = 0; i < ctx_estorage.components_count; ++i) {
+		itu_component_pool_clear(ctx_estorage.components[i]);
+	}
+	for (int i = 0; i < TAGS_COUNT_MAX; ++i) {
+		ctx_estorage.tags[i] = NULL;
+	}
+	stbds_arrfree(ctx_estorage.entities);
+	stbds_arrfree(ctx_estorage.entities_free);
+}
+
+void itu_sys_estorage_set_systems(ITU_SystemDef* systems, int systems_count)
+{
+	SDL_assert(systems_count <= SYSTEMS_COUNT_MAX);
+
+	ctx_estorage.systems_count = systems_count;
+	for(int i = 0; i < systems_count; ++i)
+	{
+		ITU_System* system_runtime = &ctx_estorage.systems[i];
+		ITU_SystemDef* system_def  = &systems[i];
+
+		// build component pool pointers (this requires component pools to be alredy set up)
+		for(int j = 0; j < COMPONENTS_COUNT_MAX; ++j)
+		{
+			Uint64 component_bitmask = 1ll << j;
+			if(system_def->component_mask & component_bitmask)
+				system_runtime->components[system_runtime->components_count++] = ctx_estorage.components[j];
+		}
+		for(int j = 0; j < TAGS_COUNT_MAX; ++j)
+		{
+			Uint64 tag_bitmask = 1ll << j;
+			if(system_def->tag_mask & tag_bitmask)
+				system_runtime->tags[system_runtime->tags_count++] = j;
+		}
+		system_runtime->fn_update = system_def->fn_update;
+		system_runtime->name = system_def->name;
+	}
+}
+
+void itu_sys_estorage_add_system(ITU_SystemDef system_def, bool is_render_system)
+{
+	if(ctx_estorage.systems_count == SYSTEMS_COUNT_MAX)
+	{
+		SDL_Log("WARNING maximum number of systes reached");
+		return;
+	}
+
+	ITU_System* system_runtime;
+
+	if (!is_render_system) {
+		system_runtime = &ctx_estorage.systems[ctx_estorage.systems_count++];
+	} else {
+		system_runtime = &ctx_estorage.render_systems[ctx_estorage.render_systems_count++];
+	}
+
+	// build component pool pointers (this requires component pools to be alredy set up)
+	for(int j = 0; j < COMPONENTS_COUNT_MAX; ++j)
+	{
+		Uint64 component_bitmask = 1ll << j;
+		if(system_def.component_mask & component_bitmask)
+			system_runtime->components[system_runtime->components_count++] = ctx_estorage.components[j];
+	}
+	for(int j = 0; j < TAGS_COUNT_MAX; ++j)
+	{
+		Uint64 tag_bitmask = 1ll << j;
+		if(system_def.tag_mask & tag_bitmask)
+			system_runtime->tags[system_runtime->tags_count++] = j;
+	}
+	system_runtime->fn_update = system_def.fn_update;
+	system_runtime->name = system_def.name;
+}
+
+
+int itu_system_get_matching_entities(ITU_System* system, ITU_EntityId* out_entitiy_group)
+{
+	ITU_EntityId* min_component;
+	Uint64  min_component_size = ENTITIES_COUNT_MAX + 1;
+	int system_ids_count = 0;
+
+	for(int j = 0; j < system->components_count; ++j)
+		if(system->components[j]->count_alive < min_component_size)
+		{
+			min_component = system->components[j]->entity_ids;
+			min_component_size = system->components[j]->count_alive;
+		}
+
+	for(int j = 0; j < system->tags_count; ++j)
+	{
+		auto tmp = ctx_estorage.tags[system->tags[j]];
+		if(!tmp)
+			continue;
+		if(stbds_hmlen(tmp) < min_component_size)
+		{
+			min_component = (ITU_EntityId*)tmp;
+			min_component_size = stbds_hmlen(tmp);
+		}
+	}
+
+	// filter entities
+	for(int k = 0; k < min_component_size; ++k)
+	{
+		ITU_EntityId entity_curr = min_component[k];
+		bool filter_out = !entity_get_isActive(entity_curr);
+		for(int j = 0; j < system->components_count; ++j)
+		{
+			ITU_Component* filtered_component = system->components[j];
+
+			if(filtered_component->data_loc[entity_curr.index] == -1)
+			{
+				filter_out = true;
+				break;
+			}
+		}
+
+		for(int j = 0; j < system->tags_count; ++j)
+		{
+			ITU_TagType filtered_tag = system->tags[j];
+				
+			if(stbds_hmgeti(ctx_estorage.tags[filtered_tag], entity_curr) == -1)
+			{
+				filter_out = true;
+				break;
+			}
+		}
+		if(!filter_out)
+			out_entitiy_group[system_ids_count++] = entity_curr;
+	}
+
+	return system_ids_count;
+}
+
+void itu_sys_estorage_systems_update(SDLContext* context)
+{
+	for(int i = 0; i < ctx_estorage.systems_count; ++i)
+	{
+		ITU_System* system = &ctx_estorage.systems[i];
+		ITU_EntityId system_ids[ENTITIES_COUNT_MAX];
+		int system_ids_count = itu_system_get_matching_entities(system, system_ids);
+
+		system->fn_update(context, system_ids, system_ids_count);
+	}
+}
+
+void itu_sys_estorage_render_update(SDLContext* context)
+{
+	for(int i = 0; i < ctx_estorage.render_systems_count; ++i)
+	{
+		ITU_System* system = &ctx_estorage.render_systems[i];
+		ITU_EntityId system_ids[ENTITIES_COUNT_MAX];
+		int system_ids_count = itu_system_get_matching_entities(system, system_ids);
+
+		system->fn_update(context, system_ids, system_ids_count);
+	}
+}
+
 void itu_component_pool_assign(ITU_Component* component_pool, ITU_EntityId entity)
 {
 	SDL_assert(component_pool);
@@ -629,17 +660,6 @@ ITU_EntityId itu_entity_create()
 	stbds_arrput(ctx_estorage.entities, entity_data);
 
 	return entity_data.id;
-}
-
-void  itu_entity_set_debug_name(ITU_EntityId id, const char* debug_name)
-{
-	// NOTE: allocating every single name is BAD, but we haven't looked in allocaiton startegies and memory arenas yet
-	int len = SDL_strlen(debug_name);
-	char* name_storage = (char*)SDL_malloc(len + 1);
-	SDL_memcpy(name_storage, debug_name, len);
-	name_storage[len] = 0;
-
-	stbds_hmput(ctx_estorage.entities_debug_names, id, name_storage);
 }
 
 bool itu_entity_equals(ITU_EntityId a, ITU_EntityId b)
@@ -757,19 +777,6 @@ void itu_entity_destroy(ITU_EntityId id)
 		return;
 	}
 
-	//ITU_EntityId target_id = ctx_estorage.entities[id.index].id;
-	//if(target_id.index == -1)
-	//{
-	//	SDL_Log("WARNING trying to delete entity already deleted\n");
-	//	return;
-	//}
-	//
-	//if(target_id.generation != id.generation)
-	//{
-	//	SDL_Log("WARNING generation mismatch\n");
-	//	return;
-	//}
-
 	Uint64 component_mask = ctx_estorage.entities[id.index].component_mask;
 
 	// free all components
@@ -787,6 +794,7 @@ void itu_entity_destroy(ITU_EntityId id)
 	for(int i = 0; i < TAGS_COUNT_MAX; ++i)
 		itu_entity_tag_remove(id, i);
 
+	#ifdef DEBUG
 	// clear debug name
 	int pos_name_storage = stbds_hmgeti(ctx_estorage.entities_debug_names, id);
 	if(pos_name_storage != -1)
@@ -796,22 +804,13 @@ void itu_entity_destroy(ITU_EntityId id)
 		SDL_free(ctx_estorage.entities_debug_names[pos_name_storage].value);
 		stbds_hmdel(ctx_estorage.entities_debug_names, id);
 	}
+	#endif
 
 	ctx_estorage.entities[id.index].id.index = -1;
 	ctx_estorage.entities[id.index].id.generation++;
 	ctx_estorage.entities[id.index].component_mask = 0;
 	stbds_arrput(ctx_estorage.entities_free, id);
 }
-
-
-void itu_debug_ui_widget_entityid(const char* label, ITU_EntityId id)
-{
-	if(!itu_entity_is_valid(id))
-		ImGui::LabelText(label, "INVALID ENTITY");
-	else
-		ImGui::LabelText(label, "%s (%d, %d)", ctx_estorage.entities_debug_names[id.index].value, id.generation, id.index);
-}
-
 
 void entity_set_active(ITU_EntityId id, bool value){
 	if (!itu_entity_is_valid(id))

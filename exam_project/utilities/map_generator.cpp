@@ -325,9 +325,10 @@ void carve_path(int* grid, int rows, int cols, Point start, int length, Point di
     int y = start.y;
 
     for(int i = 0; i <= length; i++) {
-        int target_x = x;
-        int target_y = y;
-        for (int p = -padding; p <= padding; p++) {
+        
+        for (int p = -padding;p <= padding; p++) {
+            int target_x = x;
+            int target_y = y;
             if (dir.x != 0) {
                 target_y += p;
             } else if (dir.y != 0) {
@@ -375,9 +376,10 @@ void create_path_between_rooms(Map map, Tilemap* tilemaps, Point room_a, Point r
     // Find best wall position to create a path
     int best_wall_pos = -1;
     int best_distance = 9999;
-
+    
+    int padding = 1; // Carve a wider path
     // Skip corners when scanning
-    for (int i = 1; i < wall_length - 1; ++i) {
+    for (int i = padding; i < wall_length - padding; ++i) {
         Point point_a = is_horizontal ? Point{ wall_x, i } : Point{ i, wall_x };
         Point point_b = is_horizontal ? Point{ wall_y, i } : Point{ i, wall_y };
 
@@ -403,7 +405,6 @@ void create_path_between_rooms(Map map, Tilemap* tilemaps, Point room_a, Point r
         int length_a = get_distance_from_edge_to_open_area(grid_a, rows, cols, path_point_a, scan_room_a_direction);
         int length_b = get_distance_from_edge_to_open_area(grid_b, rows, cols, path_point_b, scan_room_b_direction);
 
-        int padding = 1; // Carve a wider path
         carve_path(grid_a, rows, cols, path_point_a, length_a, scan_room_a_direction, padding);
         carve_path(grid_b, rows, cols, path_point_b, length_b, scan_room_b_direction, padding);
 

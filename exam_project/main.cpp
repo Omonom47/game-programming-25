@@ -171,10 +171,10 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 {
 	SDL_Texture *texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
 
-	b2Capsule capsule = {0};
-	capsule.center1 = b2Vec2_zero;
-	capsule.center2 = b2Vec2_zero;
-	capsule.radius = 0.15f;
+	b2Capsule capsule = { 0 };
+	capsule.center1 = b2Vec2{0,0.25F};
+	capsule.center2 = b2Vec2{0,-0.25F};
+	capsule.radius = 0.2f;
 	ITU_EntityId id = itu_entity_create();
 	
 	#ifdef DEBUG
@@ -197,6 +197,7 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	body_def.position = value_cast(b2Vec2, transform.position);
 	body_def.userData = value_cast(void *, id);
 	body_def.isBullet = true;
+	body_def.rotation = b2MakeRot(transform.rotation);
 	
 	pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
 	b2Body_SetUserData(pd.body_id,value_cast(void*, id));
@@ -421,17 +422,16 @@ vec2f room_coordinate_to_world_position(int room_x, int room_y, int room_width, 
 	return vec2f{world_x, world_y};
 }
 
-std::tuple<vec2f, vec2f> tile_coordinate_to_world_position(Tilemap *tilemap, Transform *transform, int tile_col, int tile_row, float tile_offset = -0.5f, vec2f pivot = vec2f{0.5f, 0.5f})
-{
+std::tuple<vec2f, vec2f> tile_coordinate_to_world_position(Tilemap* tilemap, Transform* transform, int tile_col, int tile_row, float tile_offset = -0.5f){
 	float width = transform->scale.x;
 	float height = transform->scale.y;
 
     float room_width = tilemap->num_cols * width;
     float room_height = tilemap->num_rows * height;
 
-	// Calculate centered position
-	float x = transform->position.x + (tile_col + tile_offset) * width - (pivot.x * room_width);
-	float y = transform->position.y + (tile_row + tile_offset) * height - (pivot.y * room_height);
+    // Calculate centered position
+    float x = transform->position.x + (tile_col + tile_offset) * width - (tilemap->pivot.x * room_width);
+    float y = transform->position.y + (tile_row + tile_offset) * height - (tilemap->pivot.y * room_height);
 
 	return std::make_tuple(vec2f{width, height}, vec2f{x, y});
 }
@@ -538,10 +538,8 @@ void system_bullet_collision_events(SDLContext *context, ITU_EntityId *entity_id
 	for (int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
-		if (!entity_get_isActive(id))
-			continue;
-
-		ShapeData *shape_data = entity_get_data(id, ShapeData);
+		
+		ShapeData* shape_data = entity_get_data(id, ShapeData);
 		b2ShapeId bullet_id = shape_data->shape_id;
 
 		b2ContactData contactData[10];
@@ -565,8 +563,6 @@ void system_enemy_collision_events(SDLContext *context, ITU_EntityId *entity_ids
 	for (int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
-		if (!entity_get_isActive(id))
-			continue;
 
 		ShapeData *shape_data = entity_get_data(id, ShapeData);
 		b2ShapeId enemy_id = shape_data->shape_id;
@@ -656,19 +652,44 @@ void render_background_void(SDLContext *context)
 	}
 }
 
-void system_tilemap_render(SDLContext *context, ITU_EntityId *entity_ids, int entity_ids_count)
+bool is_tile_in_camera_view(vec2f position, vec2f size, vec2f camera_min, vec2f camera_max){
+
+	bool greater_than_min = position.x >= camera_min.x && position.y >= camera_min.y;
+	bool less_than_max = position.x <= camera_max.x && position.y <= camera_max.y;
+
+	return greater_than_min || less_than_max;
+}
+
+void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
-	for (int i = 0; i < entity_ids_count; ++i)
+	// Calculate number of units fit on screen
+	float view_width = context->camera_active->normalized_screen_size.x / context->camera_active->zoom * context->window_w / context->camera_active->pixels_per_unit;
+	float view_height = context->camera_active->normalized_screen_size.y / context->camera_active->zoom * context->window_h / context->camera_active->pixels_per_unit;
+
+	vec2f camera_world_pos = context->camera_active->world_position;
+
+	// Calculate top left corner of the view in world coordinates
+	float start_x = camera_world_pos.x - view_width / 2.0f;
+	float start_y = camera_world_pos.y - view_height / 2.0f;
+
+	for(int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
-		Tilemap *tilemap = entity_get_data(id, Tilemap);
-		Transform *transform = entity_get_data(id, Transform);
-		float tile_offset = -0.5f; // to center the tile on its position
+		Tilemap* tilemap = entity_get_data(id, Tilemap);
+		Transform* transform = entity_get_data(id, Transform);
+		float tile_offset = -0.5f; // to center the tile on its position		
 
 		for (int y = 0; y < tilemap->num_rows; ++y)
 		{
 			for (int x = 0; x < tilemap->num_cols; ++x)
 			{
+				vec2f width_height;
+				vec2f position;
+				std::tie(width_height, position) = tile_coordinate_to_world_position(tilemap, transform, x, y);
+				if (!is_tile_in_camera_view(position,width_height,{start_x,start_y},
+				{start_x+view_width,start_y+view_height}))
+					continue;
+				
 				int tile_id_map = tilemap->tile_ids[y * tilemap->num_cols + x];
 				int tile_id_texture = tile_mapping[tile_id_map];
 				int tile_coord_x = tile_id_texture % TILESET_NUM_COLS;
@@ -683,9 +704,6 @@ void system_tilemap_render(SDLContext *context, ITU_EntityId *entity_ids, int en
 
 				// get destination rect based on current x and y
 				SDL_FRect rect_dst;
-				vec2f width_height;
-				vec2f position;
-				std::tie(width_height, position) = tile_coordinate_to_world_position(tilemap, transform, x, y);
 				rect_dst.w = width_height.x;
 				rect_dst.h = width_height.y;
 				rect_dst.x = position.x;
@@ -1298,7 +1316,7 @@ static void game_reset(SDLContext *context)
 		Health player_health = { 10, 10, 1, 1 }; //max, current, elapsed, grace_period
 		
 		ShooterData shooter;
-		shooter.weapon = generate_weapon(context->prng);
+		shooter.weapon = basic_weapon;//generate_weapon(context->prng);
 		shooter.cooldown_left = 0;
 		
 		entity_add_component(id_player, Transform     , transform);

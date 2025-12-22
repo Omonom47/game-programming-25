@@ -14,8 +14,8 @@
 #define PHYSICS_MAX_TIMESTEPS_PER_FRAME 4
 #define PHYSICS_MAX_CONTACTS_PER_ENTITY 16
 
-#define WINDOW_W         800
-#define WINDOW_H         600
+#define WINDOW_W         1024
+#define WINDOW_H         576
 
 // ui colors
 #define EX6_COLOR_BTN_DEFAULT color { 0.5f, 0.5f, 0.5f, 1.0f }

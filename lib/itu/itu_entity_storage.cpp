@@ -825,7 +825,7 @@ void entity_set_active(ITU_EntityId id, bool value){
 bool entity_get_isActive(ITU_EntityId id){
 	if (!itu_entity_is_valid(id))
 	{
-		SDL_Log("WARNING invalid entity\n");
+		SDL_Log("invalid entity is not active\n");
 		return false;
 	}
 

@@ -63,7 +63,7 @@ Weapon generate_weapon(PRNG* engine){
 	float cooldown = random_float_in_range(min_cooldown,2.2f,engine);
 	ret.cooldown = cooldown;
 
-	float speed = random_float_in_range(6,10,engine);
+	float speed = random_float_in_range(8,12,engine);
 	ret.bullet_speed = speed;
 
 	ret.fn_bullet_behaviour = fn_straight_shot;

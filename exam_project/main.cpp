@@ -1173,6 +1173,17 @@ static void game_reset(SDLContext *context)
 	context->game_over = false;
 	context->game_win = false;
 
+	// Reset movement
+	context->btn_isdown[BTN_TYPE_W] = false;
+	context->btn_isdown[BTN_TYPE_A] = false;
+	context->btn_isdown[BTN_TYPE_S] = false;
+	context->btn_isdown[BTN_TYPE_D] = false;
+	
+	context->btn_isdown[BTN_TYPE_UP] = false;
+	context->btn_isdown[BTN_TYPE_DOWN] = false;
+	context->btn_isdown[BTN_TYPE_LEFT] = false;
+	context->btn_isdown[BTN_TYPE_RIGHT] = false;
+
 	// TMP get textures pointers
 	SDL_Texture *texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
 	SDL_Texture *texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);

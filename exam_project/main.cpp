@@ -154,7 +154,7 @@ void create_enemy(SDLContext *context, vec2f position, SDL_Texture *texture)
 	shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
     EnemyData ed = { 0 };
-    ed.curr_speed_linear = 4;
+    ed.curr_speed_linear = 5;
 	int max_health = 100;
     Health enemy_health = { max_health, max_health , 1.0f, 0.0f };
 
@@ -502,7 +502,7 @@ void system_player_collision_events(SDLContext *context, ITU_EntityId *entity_id
 			// Handle collision with goal
 			if (filter.categoryBits & GOAL)
 			{
-				context->game_over = true;
+				context->game_win = true;
 				return;
 			}
 
@@ -1148,6 +1148,10 @@ static void game_init(SDLContext *context)
 
 static void game_reset(SDLContext *context)
 {
+	context->debug_ui_show = true;
+	context->game_over = false;
+	context->game_win = false;
+
 	// TMP get textures pointers
 	SDL_Texture *texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
 	SDL_Texture *texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);
@@ -1316,7 +1320,7 @@ static void game_reset(SDLContext *context)
 		Health player_health = { 10, 10, 1, 1 }; //max, current, elapsed, grace_period
 		
 		ShooterData shooter;
-		shooter.weapon = basic_weapon;//generate_weapon(context->prng);
+		shooter.weapon = generate_weapon(context->prng);
 		shooter.cooldown_left = 0;
 		
 		entity_add_component(id_player, Transform     , transform);
@@ -1346,7 +1350,7 @@ static void game_reset(SDLContext *context)
 				int rand_idx = random_up_to((int)room_spawn_locations[i].size(), context->prng);
 				vec2f candidate_position = room_spawn_locations[i][rand_idx];
 
-				const float min_spawn_distance_sq = 5.0f * 5.0f;
+				const float min_spawn_distance_sq = 8.0f * 8.0f;
 				if(distance_sq(context->player_start_position, candidate_position) > min_spawn_distance_sq) {
 					create_enemy(context, candidate_position, texture);
 				}
@@ -1424,8 +1428,15 @@ void render_main_menu_ui(SDLContext *context, GameState *current_state, float *s
 
 	if (ImGui::Begin("Main Menu", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
 	{
-		ImGui::Text("Welcome to the never ending dungeon!");
+		const char* text = "Welcome to the never ending dungeon!";
+        float window_width = ImGui::GetWindowSize().x;
+        float text_width = ImGui::CalcTextSize(text).x;
+        ImGui::SetCursorPosX((window_width - text_width) * 0.5f);
+        ImGui::Text("%s", text);
+
 		ImGui::Spacing();
+
+		ImGui::SetCursorPosX((window_width - 200) * 0.5f);
 		if (ImGui::Button("Start Game", ImVec2(200, 50)))
 		{
 			game_reset(context);
@@ -1438,6 +1449,8 @@ void render_main_menu_ui(SDLContext *context, GameState *current_state, float *s
 			*current_state = STATE_PLAYING;
 		}
 		ImGui::Spacing();
+
+		ImGui::SetCursorPosX((window_width - 200) * 0.5f);
 		if (ImGui::Button("Quit", ImVec2(200, 50)))
 		{
 			*quit = true;
@@ -1452,19 +1465,36 @@ void render_game_over_ui(SDLContext *context, GameState *current_state, float *s
 
 	if (ImGui::Begin("Game Over", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
 	{
-		ImGui::TextColored(ImVec4(1, 0, 0, 1), "GAME OVER");
+		const char* text = "GAME OVER";
+		ImVec4 color = ImVec4(1, 0, 0, 1); 
+
+		if (context->game_win) {
+    	text = "YOU WON!";
+    	color = ImVec4(0, 1, 0, 1); 
+		}
+
+		float window_width = ImGui::GetWindowSize().x;
+		float text_width = ImGui::CalcTextSize(text).x;
+
+		ImGui::SetCursorPosX((window_width - text_width) * 0.5f);
+		ImGui::TextColored(color, "%s", text);	
+
 		ImGui::Spacing();
 
 		ImGui::Text("You survived for %.2f seconds!", *survival_time);
 		ImGui::Spacing();
 
+		ImGui::SetCursorPosX((window_width - 200) * 0.5f);
 		if (ImGui::Button("Retry", ImVec2(200, 50)))
 		{
 			game_reset(context);
 			*survival_time = 0.0f;
 			*current_state = STATE_PLAYING;
+			context->game_over = false;
+			context->game_win = false;
 		}
 
+		ImGui::SetCursorPosX((window_width - 200) * 0.5f);
 		if (ImGui::Button("Return to Main Menu", ImVec2(200, 50)))
 		{
 			*current_state = STATE_MENU;
@@ -1487,10 +1517,9 @@ void gameplay_loop(SDLContext *context, GameState *current_state, float *round_t
 	}
 
 	// Check for game over
-	if (context->game_over)
+	if (context->game_over || context->game_win)
 	{
 		*current_state = STATE_GAMEOVER;
-		context->game_over = false;
 		sys_audio_stop_music(NULL, 1000);
 	}
 }
@@ -1533,7 +1562,7 @@ int main(void)
 	context.camera_default.pixels_per_unit = CAMERA_PIXELS_PER_UNIT;
 	camera_set_active(&context, &context.camera_default);
 
-	context.debug_ui_show = true;
+	
 
 	game_init(&context);
 
@@ -1636,6 +1665,17 @@ int main(void)
 						{
 							game_reset(&context);
 						}
+						if (ImGui::Button("Set Game Over"))
+						{	
+							context.game_win = false;
+							context.game_over = true;
+						}
+						if (ImGui::Button("Set Game Win"))
+						{	
+							context.game_over = false;
+							context.game_win = true;
+						}
+						
 						if (ImGui::Button("draw map collisions"))
 						{
 							context.render_debug = !context.render_debug;
@@ -1673,6 +1713,8 @@ int main(void)
 		walltime_frame_beg = walltime_frame_end;
 	}
 
+	// Cleanup
+	sys_audio_close();
 	SDL_DestroyRenderer(context.renderer);
     SDL_DestroyWindow(context.window);
     TTF_Quit();

@@ -169,6 +169,21 @@ void sys_audio_set_gain_sfx(float gain)
     }
 }
 
+void sys_audio_close()
+{
+    for(int i = 0; i < sys_audio_ctx.tracks_count; ++i) {
+        if(sys_audio_ctx.tracks[i]) {
+            MIX_DestroyTrack(sys_audio_ctx.tracks[i]);
+            sys_audio_ctx.tracks[i] = NULL;
+        }
+    }
+    if (sys_audio_ctx.mixer) {
+        MIX_DestroyMixer(sys_audio_ctx.mixer);
+        sys_audio_ctx.mixer = NULL;
+    }
+    MIX_Quit();
+}
+
 
 
 #endif // ITU_LIB_AUDIO_IMPLEMENTATION

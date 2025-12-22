@@ -66,6 +66,7 @@ struct SDLContext
 	vec2f player_start_position;
 	bool render_debug;
 	bool game_over;
+	bool game_win;
 
 	float delta;    // in seconds
 	float uptime;   // in seconds

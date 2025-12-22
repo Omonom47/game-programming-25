@@ -138,6 +138,15 @@ void sys_audio_play_sfx(MIX_Audio* audio)
     play_audio_track(track_idx, audio, sys_audio_ctx.gain_sfx, 0);
 }
 
+void sys_audio_play_sfx_gain(MIX_Audio* audio, float volume) 
+{
+    if(!audio) return;
+    int track_idx = find_free_track();
+    float new_gain = sys_audio_ctx.gain_sfx * volume;
+    play_audio_track(track_idx, audio, new_gain, 0);
+}
+
+
 void sys_audio_set_gain_master(float gain)
 {
     MIX_SetMasterGain(sys_audio_ctx.mixer, gain);

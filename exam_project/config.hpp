@@ -22,19 +22,46 @@
 #define EX6_COLOR_BTN_HOVER   color { 0.75f, 0.75f, 0.75f, 1.0f }
 #define EX6_COLOR_BTN_CLICK   color { 1.0f, 1.0f, 1.0f, 1.0f }
 
+#define COLOR_TEXT_WIN  ImVec4(0, 1, 0, 1) 
+#define COLOR_TEXT_LOSE ImVec4(1, 0, 0, 1) 
+
+#define COLOR_ENEMY_DAMAGED color{1.0f, 0.1f, 0.1f, 1.0f} 
+#define COLOR_ENEMY_NORMAL  color{1.0f, 1.0f, 1.0f, 1.0f} 
+
 // tileset information
 #define TILESET_NUM_COLS 12
 #define TILESET_NUM_ROWS 11
 
 // room information
-
 #define ROOM_NUM_TILES_X 30
 #define ROOM_NUM_TILES_Y 30
 #define NUM_ROOMS 5
 #define MAX_ENEMIES_PER_ROOM 7
 #define MIN_NUM_BULLETS 30
 
-const float SPAWN_DISTANCE_FROM_PLAYER = 10.0f;
+// audio
+#define MAX_AUDIO_CHANNELS 8
+#define BACKGROUND_MUSIC_VOLUME 0.8f
+
+// Tile IDs (
+#define TILE_ID_WALL 40
+#define TILE_ID_FLOOR 48
+#define TILE_ID_FLOOR_ALT 42
+
+// Sprite Coordinates (Grid X, Y)
+#define SPRITE_PLAYER_X 0
+#define SPRITE_PLAYER_Y 8
+#define SPRITE_ENEMY_X 0
+#define SPRITE_ENEMY_Y 9
+#define SPRITE_BULLET_X 11
+#define SPRITE_BULLET_Y 10
+#define SPRITE_GOAL_X 5
+#define SPRITE_GOAL_Y 10
+
+// Gameplay Balance
+#define SPAWN_CHECK_INTERVAL 3.0f
+#define SPAWN_DISTANCE_FROM_PLAYER_SQ (10.0f * 10.0f)
+
 
 
 enum CollisionCategories{

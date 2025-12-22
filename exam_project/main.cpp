@@ -33,9 +33,9 @@ static ITU_EntityId tilemaps[tilemap_count];
 static bool is_tilemaps_filled = false;
 
 const int tile_mapping[] = {
-	40, // wall
-	48, // floor
-	42, // Alternate floor
+	TILE_ID_WALL, // wall
+	TILE_ID_FLOOR, // floor
+	TILE_ID_FLOOR_ALT, // Alternate floor
 };
 
 const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
@@ -94,7 +94,7 @@ void create_goal(SDLContext *context, vec2f position)
 
 	Sprite sprite;
 	SDL_Texture *texture = itu_sys_rstorage_texture_get_ptr(0);
-	itu_lib_sprite_init(&sprite, texture, itu_lib_sprite_get_rect(5, 10, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
+	itu_lib_sprite_init(&sprite, texture, itu_lib_sprite_get_rect(SPRITE_GOAL_X, SPRITE_GOAL_Y, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 	sprite.tint = COLOR_GREEN;
 
 	PhysicsData physics_data = {0};
@@ -160,7 +160,7 @@ ITU_EntityId create_enemy(SDLContext *context, vec2f position, SDL_Texture *text
     transform.position = position;
 
 	Sprite sprite;
-	itu_lib_sprite_init(&sprite, texture, itu_lib_sprite_get_rect(0, 9, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
+	itu_lib_sprite_init(&sprite, texture, itu_lib_sprite_get_rect(SPRITE_ENEMY_X, SPRITE_ENEMY_Y, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 
 	PhysicsData physics_data = {0};
 	physics_data.ignore_rotation = true;
@@ -241,7 +241,7 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	transform.rotation = bullet_angle - PI_HALF;
 
 	Sprite sprite;
-	itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(11, 10, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
+	itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(SPRITE_BULLET_X, SPRITE_BULLET_Y, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 
 	PhysicsData pd = {0};
 	pd.ignore_rotation = true;
@@ -296,21 +296,18 @@ int get_room_index_from_position(vec2f position)
 void system_maintain_enemy_population(SDLContext *context, ITU_EntityId *entity_ids, int entity_ids_count)
 {
 	static float spawn_check_timer = 0.0f;
-	const float SPAWN_CHECK_INTERVAL = 3.0f;
-
 	spawn_check_timer += context->delta;
 
 	if(spawn_check_timer < SPAWN_CHECK_INTERVAL) return;
 	spawn_check_timer = 0.0f;
 
 	const int enemies_per_room = MAX_ENEMIES_PER_ROOM;
-	const float min_spawn_distance_sq = SPAWN_DISTANCE_FROM_PLAYER * SPAWN_DISTANCE_FROM_PLAYER;
+	const float min_spawn_distance_sq = SPAWN_DISTANCE_FROM_PLAYER_SQ;
 
 	// Count active enemies in each room
 	static std::vector<int> enemies_in_room(tilemap_count);
-	
+	enemies_in_room.assign(tilemap_count, 0);
 
-	std::fill(enemies_in_room.begin(), enemies_in_room.end(), 0); // Needs to be reset, as it is static
 	for (int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
@@ -1015,11 +1012,11 @@ void system_health_update(SDLContext *context, ITU_EntityId *entity_ids, int ent
 		float flash_duration = 0.25f;
 		if (health->elapsed < flash_duration)
 		{
-			sprite->tint = color{1.0f, 0.1f, 0.1f, 1.0f}; // Red
+			sprite->tint = COLOR_ENEMY_DAMAGED; // Red
 		}
 		else
 		{
-			sprite->tint = color{1.0f, 1.0f, 1.0f, 1.0f}; // Normal
+			sprite->tint = COLOR_ENEMY_NORMAL; // Normal
 		}
 	}
 }
@@ -1148,8 +1145,8 @@ static void game_init(SDLContext *context)
 	itu_sys_rstorage_texture_load(context, "data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
 	itu_sys_rstorage_font_load(context, "data/ARIALBD.TTF", 42);
 
-	sys_audio_init(8);
-	sys_audio_set_gain_music(0.8f); // Set volume
+	sys_audio_init(MAX_AUDIO_CHANNELS);
+	sys_audio_set_gain_music(BACKGROUND_MUSIC_VOLUME); // Set volume
 
 	id_background_music = itu_sys_rstorage_audio_load(context, BACKGROUND_MUSIC, true);;
 
@@ -1230,6 +1227,9 @@ static void game_reset(SDLContext *context)
 	SDL_Texture *texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
 	SDL_Texture *texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);
 	TTF_Font *font_bold = itu_sys_rstorage_font_get_ptr(0);
+	
+	bullet_pool.clear();
+	enemy_pool.clear();
 
 	free_map();
 	itu_sys_estorage_clear_all_entities();
@@ -1366,7 +1366,7 @@ static void game_reset(SDLContext *context)
 		transform.position = context->player_start_position;
 
 		Sprite sprite;
-		itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(0, 8, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
+		itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(SPRITE_PLAYER_X, SPRITE_PLAYER_Y, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 
 		PlayerData data = {0};
 		data.rotation = vec2f{0.0f, 1.0f};
@@ -1391,7 +1391,9 @@ static void game_reset(SDLContext *context)
 		ShapeData shape_data;
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
-		Health player_health = { 10, 10, 1, 1 }; //max, current, elapsed, grace_period
+		int start_hp = 10;
+		int grade_period = 1.0f;
+		Health player_health = { start_hp, start_hp, 1, grade_period}; //max, current, elapsed, grace_period
 		
 		ShooterData shooter;
 		shooter.weapon = generate_weapon(context->prng);
@@ -1413,9 +1415,6 @@ static void game_reset(SDLContext *context)
 		}
 	}
 
-	bullet_pool.clear();
-	enemy_pool.clear();
-
 	// Bullets
 	BulletData bullet_data = {0};
 	vec2f position = {-1000, -1000};
@@ -1436,7 +1435,6 @@ static void game_reset(SDLContext *context)
 		PhysicsData* pd = entity_get_data(enemy_id, PhysicsData);
 		b2Body_Disable(pd->body_id);
 	}
-
 
 	// Enemies
 	{
@@ -1565,11 +1563,11 @@ void render_game_over_ui(SDLContext *context, GameState *current_state, float *s
 	if (ImGui::Begin("Game Over", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
 	{
 		const char* text = "GAME OVER";
-		ImVec4 color = ImVec4(1, 0, 0, 1); 
+		ImVec4 color = COLOR_TEXT_LOSE; 
 
 		if (context->game_win) {
     	text = "YOU WON!";
-    	color = ImVec4(0, 1, 0, 1); 
+    	color =  COLOR_TEXT_WIN; 
 		}
 
 		float window_width = ImGui::GetWindowSize().x;

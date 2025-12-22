@@ -81,7 +81,6 @@ static ITU_IdAudio id_bullet_sounds[std::size(BULLET_SOUND_PATHS)];
 // =============================================================
 // 	Creation methods
 // =============================================================
-
 void create_goal(SDLContext *context, vec2f position)
 {
 	ITU_EntityId id = itu_entity_create();
@@ -123,8 +122,36 @@ void create_goal(SDLContext *context, vec2f position)
 
 static std::vector<vec2f> valid_spawn_locations;
 static std::vector<vec2f> room_spawn_locations[tilemap_count];
-void create_enemy(SDLContext *context, vec2f position, SDL_Texture *texture)
+
+static std::vector<ITU_EntityId> enemy_pool;
+ITU_EntityId create_enemy(SDLContext *context, vec2f position, SDL_Texture *texture)
 {
+
+	for (ITU_EntityId id : enemy_pool)
+	{
+		if(!entity_get_isActive(id)) {
+			Transform* transform = entity_get_data(id, Transform);
+            PhysicsData* physics_data = entity_get_data(id, PhysicsData);
+            Health* health = entity_get_data(id, Health);
+			EnemyData* enemy_data = entity_get_data(id, EnemyData);
+
+			// Reset position, stats, and physics
+			transform->position = position;
+
+			health->curr = health->max;
+			health->elapsed = 1.0f;
+			enemy_data->curr_speed_linear = 5;
+
+			b2Body_SetTransform(physics_data->body_id, value_cast(b2Vec2, position), b2Rot{0, 1});
+            b2Body_Enable(physics_data->body_id);
+            b2Body_SetAwake(physics_data->body_id, true);
+
+			// Re-activate entity
+			entity_set_active(id, true);
+			return 	id;
+		}
+	}
+
 	ITU_EntityId enemy_id = itu_entity_create();
 	#ifdef DEBUG
     itu_entity_set_debug_name(enemy_id, "enemy");
@@ -165,10 +192,36 @@ void create_enemy(SDLContext *context, vec2f position, SDL_Texture *texture)
 	entity_add_component(enemy_id, Sprite, sprite);
 	entity_add_component(enemy_id, Health, enemy_health);
 	itu_entity_tag_add(enemy_id, TAG_ENEMY);
+
+	enemy_pool.push_back(enemy_id);
+	return enemy_id;
 }
 
+static std::vector<ITU_EntityId> bullet_pool;
 ITU_EntityId create_bullet(vec2f position, BulletData data)
 {
+	for (ITU_EntityId id : bullet_pool) {
+		if(!entity_get_isActive(id)) {
+			Transform* transform = entity_get_data(id, Transform);
+            PhysicsData* physics_data = entity_get_data(id, PhysicsData);
+            BulletData* bullet_data = entity_get_data(id, BulletData);
+
+			transform->position = position;
+			
+			float bullet_angle = atan2(data.direction.y, data.direction.x);
+            transform->rotation = bullet_angle - PI_HALF;
+
+			b2Body_SetTransform(physics_data->body_id, value_cast(b2Vec2, position), b2Rot{0, 1});
+            b2Body_Enable(physics_data->body_id);
+            b2Body_SetAwake(physics_data->body_id, true);
+			
+			physics_data->velocity = data.direction * data.speed;
+			*bullet_data = data;
+
+			entity_set_active(id, true);
+            return id;
+		}
+	}
 	SDL_Texture *texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
 
 	b2Capsule capsule = { 0 };
@@ -215,6 +268,7 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	entity_add_component(id, PhysicsData, pd);
 	entity_add_component(id, ShapeData, shape_data);
 
+	bullet_pool.push_back(id);
 	return id;
 }
 // =============================================================
@@ -253,8 +307,10 @@ void system_maintain_enemy_population(SDLContext *context, ITU_EntityId *entity_
 	const float min_spawn_distance_sq = SPAWN_DISTANCE_FROM_PLAYER * SPAWN_DISTANCE_FROM_PLAYER;
 
 	// Count active enemies in each room
-	std::vector<int> enemies_in_room(tilemap_count, 0);
+	static std::vector<int> enemies_in_room(tilemap_count);
+	
 
+	std::fill(enemies_in_room.begin(), enemies_in_room.end(), 0); // Needs to be reset, as it is static
 	for (int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
@@ -371,32 +427,6 @@ void system_weapon_cooldown(SDLContext *context, ITU_EntityId *entity_ids, int e
 // =============================================================
 // Delete scheduled entities
 // =============================================================
-
-std::vector<std::tuple<b2BodyId, ITU_EntityId>> bodiesScheduleForDeletion;
-
-void destroyEntitiesScheduled()
-{
-	std::set<int32_t> alreadyHandled;
-
-	for (auto &body_entity_pair : bodiesScheduleForDeletion)
-	{
-
-		b2BodyId body = std::get<0>(body_entity_pair);
-		ITU_EntityId entity_id = std::get<1>(body_entity_pair);
-
-		if (auto search = alreadyHandled.find(body.index1); search != alreadyHandled.end())
-		{
-			continue;
-		}
-
-		alreadyHandled.insert(body.index1);
-
-		entity_set_active(entity_id, false);
-		b2DestroyBody(body);
-	}
-	alreadyHandled.clear();
-	bodiesScheduleForDeletion.clear();
-}
 
 void free_map()
 {
@@ -553,7 +583,7 @@ void system_bullet_collision_events(SDLContext *context, ITU_EntityId *entity_id
 
 			entity_set_active(id, false);
 			PhysicsData *phys = entity_get_data(id, PhysicsData);
-			bodiesScheduleForDeletion.push_back(std::tie(phys->body_id, id));
+			b2Body_Disable(phys->body_id);
 		}
 	}
 }
@@ -588,9 +618,9 @@ void system_enemy_collision_events(SDLContext *context, ITU_EntityId *entity_ids
 
 				if (enemy_health->curr <= 0.0f)
 				{
+					entity_set_active(id, false);
 					PhysicsData *enemy_phys = entity_get_data(id, PhysicsData);
-
-					bodiesScheduleForDeletion.push_back(std::tie(enemy_phys->body_id, id));
+					b2Body_Disable(enemy_phys->body_id);
 				}
 			}
 		}
@@ -604,6 +634,8 @@ void system_enemy_collision_events(SDLContext *context, ITU_EntityId *entity_ids
 void render_background_void(SDLContext *context)
 {
 	SDL_Texture *texture = itu_sys_rstorage_texture_get_ptr(0);
+	sdl_set_texture_tint(texture, color{1.0f, 1.0f, 1.0f, 1.0f});
+
 	int wall_tile_id = tile_mapping[0];
 	int tile_size = PIXELS_PER_METER;
 
@@ -1085,6 +1117,9 @@ void system_player_shooting(SDLContext *context, ITU_EntityId *entity_ids, int e
 
 void system_bullet_update(SDLContext *context, ITU_EntityId *entity_ids, int entity_ids_count)
 {
+	vec2f camera_position = context->camera_active->world_position;
+	float max_bullet_distance_sq = 30.0f * 30.0f;
+
 	for (int i = 0; i < entity_ids_count; i++)
 	{
 		ITU_EntityId id = entity_ids[i];
@@ -1094,6 +1129,13 @@ void system_bullet_update(SDLContext *context, ITU_EntityId *entity_ids, int ent
 
 		BulletData *bd = entity_get_data(id, BulletData);
 		PhysicsData *pd = entity_get_data(id, PhysicsData);
+		Transform *t = entity_get_data(id, Transform);
+
+		if (distance_sq(t->position, camera_position) > max_bullet_distance_sq) {
+			entity_set_active(id, false);
+            b2Body_Disable(pd->body_id);
+            continue;
+		}
 
 		bd->update_behaviour(pd, bd->direction, bd->speed);
 	}
@@ -1370,6 +1412,31 @@ static void game_reset(SDLContext *context)
 			context->camera_active->world_position = transform.position;
 		}
 	}
+
+	bullet_pool.clear();
+	enemy_pool.clear();
+
+	// Bullets
+	BulletData bullet_data = {0};
+	vec2f position = {-1000, -1000};
+
+	for(int i = 0; i < MIN_NUM_BULLETS; ++i) {
+		ITU_EntityId bullet_id = create_bullet(position, bullet_data);
+		entity_set_active(bullet_id, false);
+
+		PhysicsData* pd = entity_get_data(bullet_id, PhysicsData);
+		b2Body_Disable(pd->body_id);
+	}
+
+	SDL_Texture *texture = itu_sys_rstorage_texture_get_ptr(0);
+	for(int i = 0; i < NUM_ROOMS * MAX_ENEMIES_PER_ROOM; ++i) {
+		ITU_EntityId enemy_id = create_enemy(context, position, texture);
+		entity_set_active(enemy_id, false);
+
+		PhysicsData* pd = entity_get_data(enemy_id, PhysicsData);
+		b2Body_Disable(pd->body_id);
+	}
+
 
 	// Enemies
 	{
@@ -1722,8 +1789,6 @@ int main(void)
 		}
 #endif
 #endif
-		// Destroy scheduled entites
-		destroyEntitiesScheduled();
 
 		itu_lib_imgui_frame_end(&context);
 

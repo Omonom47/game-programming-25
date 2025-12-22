@@ -660,35 +660,56 @@ bool is_tile_in_camera_view(vec2f position, vec2f size, vec2f camera_min, vec2f 
 	return greater_than_min || less_than_max;
 }
 
+vec2f world_position_to_tile_coordinate(Tilemap* tilemap, Transform* transform, vec2f world_pos)
+{
+	float width = transform->scale.x;
+    float height = transform->scale.y;
+    float room_width = tilemap->num_cols * width;
+    float room_height = tilemap->num_rows * height;
+
+	// Undo pivot
+	float local_x = world_pos.x - (transform->position.x - (tilemap->pivot.x * room_width));
+    float local_y = world_pos.y - (transform->position.y - (tilemap->pivot.y * room_height));
+
+	float x = local_x / width;
+    float y = local_y / height;
+	return vec2f { x + 0.5f, y + 0.5f };
+}
+
 void system_tilemap_render(SDLContext* context, ITU_EntityId* entity_ids, int entity_ids_count)
 {
 	// Calculate number of units fit on screen
 	float view_width = context->camera_active->normalized_screen_size.x / context->camera_active->zoom * context->window_w / context->camera_active->pixels_per_unit;
 	float view_height = context->camera_active->normalized_screen_size.y / context->camera_active->zoom * context->window_h / context->camera_active->pixels_per_unit;
-
 	vec2f camera_world_pos = context->camera_active->world_position;
 
-	// Calculate top left corner of the view in world coordinates
-	float start_x = camera_world_pos.x - view_width / 2.0f;
-	float start_y = camera_world_pos.y - view_height / 2.0f;
+	// Calculate corners of the camera view 
+	vec2f top_left  = { camera_world_pos.x - view_width / 2.0f, camera_world_pos.y - view_height / 2.0f };
+    vec2f bottom_right = { camera_world_pos.x + view_width / 2.0f, camera_world_pos.y + view_height / 2.0f };
 
 	for(int i = 0; i < entity_ids_count; ++i)
 	{
 		ITU_EntityId id = entity_ids[i];
 		Tilemap* tilemap = entity_get_data(id, Tilemap);
 		Transform* transform = entity_get_data(id, Transform);
-		float tile_offset = -0.5f; // to center the tile on its position		
+		
+		vec2f index_min = world_position_to_tile_coordinate(tilemap, transform, top_left);
+        vec2f index_max = world_position_to_tile_coordinate(tilemap, transform, bottom_right);
 
-		for (int y = 0; y < tilemap->num_rows; ++y)
+		// Ensure partially visible tiles also are renderd
+		int start_x = SDL_max(0, (int)floor(index_min.x - 1.0f));
+		int end_x = SDL_min(tilemap->num_cols, (int)ceil(index_max.x + 1.0f));
+		int start_y = SDL_max(0, (int)floor(index_min.y - 1.0f));
+        int end_y   = SDL_min(tilemap->num_rows, (int)ceil(index_max.y + 1.0f));
+
+		//Loop only over visible tiles
+		for (int y = start_y; y < end_y; ++y)
 		{
-			for (int x = 0; x < tilemap->num_cols; ++x)
+			for (int x = start_x; x < end_x; ++x)
 			{
 				vec2f width_height;
 				vec2f position;
 				std::tie(width_height, position) = tile_coordinate_to_world_position(tilemap, transform, x, y);
-				if (!is_tile_in_camera_view(position,width_height,{start_x,start_y},
-				{start_x+view_width,start_y+view_height}))
-					continue;
 				
 				int tile_id_map = tilemap->tile_ids[y * tilemap->num_cols + x];
 				int tile_id_texture = tile_mapping[tile_id_map];

@@ -58,9 +58,9 @@ struct ITU_SystemDef
 
 #define register_component(T) ITU_ComponentType ITU_COMPONENT_TYPE_##T; const char* ITU_COMPONENT_NAME_##T = #T;
 #define enable_component(T) itu_sys_estorage_add_component_pool(sizeof(T), ENTITIES_COUNT_MAX, &ITU_COMPONENT_TYPE_##T, ITU_COMPONENT_NAME_##T)
-
+#ifdef DEBUG
 #define add_component_debug_ui_render(T, fn_debug_ui_render) itu_sys_estorage_add_component_debug_ui_render( ITU_COMPONENT_TYPE_##T, fn_debug_ui_render);
-
+#endif
 #define entity_get_data(id, T) (T*)itu_entity_data_get((id), ITU_COMPONENT_TYPE_##T)
 
 #define add_system(fn_update, component_mask, tag_mask, is_render_system) itu_sys_estorage_add_system({ #fn_update, fn_update, component_mask, tag_mask })
@@ -70,6 +70,7 @@ struct ITU_SystemDef
 #define component_type(T) ITU_COMPONENT_TYPE_##T
 
 #define tag_mask(tag) (1ull << tag)
+
 #define set_tag_debug_name(tag, name) 
 
 
@@ -86,12 +87,14 @@ void itu_sys_estorage_add_system(ITU_SystemDef system_def, bool is_render_system
 void itu_sys_estorage_set_systems(ITU_SystemDef* systems, int systems_count);
 void itu_sys_estorage_systems_update(SDLContext* context);
 void itu_sys_estorage_render_update(SDLContext* context);
-
+#ifdef DEBUG
 void itu_sys_estorage_tag_set_debug_name(int tag, const char* tag_debug_name);
 void itu_sys_estorage_debug_render(SDLContext* context);
-
-ITU_EntityId itu_entity_create();
 void  itu_entity_set_debug_name  (ITU_EntityId id, const char* debug_name);
+void itu_debug_ui_widget_entityid(const char* label, ITU_EntityId id);
+#endif
+ITU_EntityId itu_entity_create();
+
 bool  itu_entity_equals          (ITU_EntityId a, ITU_EntityId b);
 bool  itu_entity_is_valid        (ITU_EntityId id);
 void  itu_entity_id_to_stringid  (ITU_EntityId id, char* buffer, int max_len);
@@ -105,5 +108,4 @@ void  itu_entity_destroy         (ITU_EntityId id);
 void entity_set_active(ITU_EntityId id,bool value);
 bool entity_get_isActive(ITU_EntityId id);
 
-void itu_debug_ui_widget_entityid(const char* label, ITU_EntityId id);
 #endif // ITU_ENTITY_STORAGE_HPP

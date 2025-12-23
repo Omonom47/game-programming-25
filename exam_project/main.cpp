@@ -658,14 +658,13 @@ void render_background_void(SDLContext *context)
 	sdl_set_texture_tint(texture, color{1.0f, 1.0f, 1.0f, 1.0f});
 
 	int wall_tile_id = tile_mapping[0];
-	int tile_size = PIXELS_PER_METER;
 
 	int tile_coord_x = wall_tile_id % TILESET_NUM_COLS;
 	int tile_coord_y = wall_tile_id / TILESET_NUM_COLS;
 
 	SDL_FRect rect_src;
-	rect_src.w = tile_size;
-	rect_src.h = tile_size;
+	rect_src.w = PIXELS_PER_METER;
+	rect_src.h = PIXELS_PER_METER;
 	rect_src.x = tile_coord_x * rect_src.w;
 	rect_src.y = tile_coord_y * rect_src.h;
 
@@ -1118,7 +1117,7 @@ void system_player_shooting(SDLContext *context, ITU_EntityId *entity_ids, int e
 
 		int bullet_amount = shooter->weapon.bullets_per_shot;
 
-		vec2f dirs[bullet_amount];
+		vec2f dirs[7];
 
 		set_bullet_dirs(shooter->weapon.pattern, bullet_amount, direction, dirs);
 
@@ -1165,9 +1164,9 @@ void system_bullet_update(SDLContext *context, ITU_EntityId *entity_ids, int ent
 static void game_init(SDLContext *context)
 {
 
-	itu_sys_rstorage_texture_load(context, "data/kenney/tiny_dungeon_packed.png", SDL_SCALEMODE_NEAREST);
-	itu_sys_rstorage_texture_load(context, "data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
-	itu_sys_rstorage_font_load(context, "data/ARIALBD.TTF", 42);
+	itu_sys_rstorage_texture_load(context, "../data/kenney/tiny_dungeon_packed.png", SDL_SCALEMODE_NEAREST);
+	itu_sys_rstorage_texture_load(context, "../data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
+	itu_sys_rstorage_font_load(context, "../data/ARIALBD.TTF", 42);
 
 	sys_audio_init(MAX_AUDIO_CHANNELS);
 	sys_audio_set_gain_music(BACKGROUND_MUSIC_VOLUME); // Set volume
@@ -1248,7 +1247,7 @@ static void game_reset(SDLContext *context)
 	context->btn_isdown[BTN_TYPE_RIGHT] = false;
 
 	// TMP get textures pointers
-	SDL_Texture *texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
+	SDL_Texture *texture_atlas = itu_sys_rstorage_texture_get_ptr(0);
 	SDL_Texture *texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);
 	TTF_Font *font_bold = itu_sys_rstorage_font_get_ptr(0);
 	
@@ -1281,7 +1280,7 @@ static void game_reset(SDLContext *context)
 			#ifdef DEBUG
 			itu_entity_set_debug_name(id_tilemap, "tilemap");
 			#endif
-			rooms[i].texture = texture_tiles;
+			rooms[i].texture = texture_atlas;
 			rooms[i].tile_size = 16;
 			rooms[i].pivot = {0.5f, 0.5f};
 
@@ -1390,7 +1389,7 @@ static void game_reset(SDLContext *context)
 		transform.position = context->player_start_position;
 
 		Sprite sprite;
-		itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(SPRITE_PLAYER_X, SPRITE_PLAYER_Y, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
+		itu_lib_sprite_init(&sprite, texture_atlas, itu_lib_sprite_get_rect(SPRITE_PLAYER_X, SPRITE_PLAYER_Y, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 
 		PlayerData data = {0};
 		data.rotation = vec2f{0.0f, 1.0f};
@@ -1416,8 +1415,8 @@ static void game_reset(SDLContext *context)
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
 		int start_hp = 10;
-		float grade_period = 1.0f;
-		Health player_health = { start_hp, start_hp, 1, grade_period}; //max, current, elapsed, grace_period
+		float grace_period = 1.0f;
+		Health player_health = { start_hp, start_hp, 1, grace_period}; //max, current, elapsed, grace_period
 		
 		ShooterData shooter;
 		shooter.weapon = generate_weapon(context->prng);
@@ -1439,27 +1438,28 @@ static void game_reset(SDLContext *context)
 		}
 	}
 
-	// Bullets
-	BulletData bullet_data = {0};
 	vec2f position = {-1000, -1000};
+	// Bullets
+	{
+		BulletData bullet_data = {0};
 
-	for(int i = 0; i < MIN_NUM_BULLETS; ++i) {
-		ITU_EntityId bullet_id = create_bullet(position, bullet_data);
-		entity_set_active(bullet_id, false);
+		for(int i = 0; i < MIN_NUM_BULLETS; ++i) {
+			ITU_EntityId bullet_id = create_bullet(position, bullet_data);
+			entity_set_active(bullet_id, false);
+		}
+
+		
 	}
-
-	SDL_Texture *texture = itu_sys_rstorage_texture_get_ptr(0);
-	for(int i = 0; i < NUM_ROOMS * MAX_ENEMIES_PER_ROOM; ++i) {
-		ITU_EntityId enemy_id = create_enemy(position);
-		entity_set_active(enemy_id, false);
-
-		PhysicsData* pd = entity_get_data(enemy_id, PhysicsData);
-		b2Body_Disable(pd->body_id);
-	}
-
+	
 	// Enemies
 	{
-		SDL_Texture* texture = itu_sys_rstorage_texture_get_ptr(0);
+		for(int i = 0; i < NUM_ROOMS * MAX_ENEMIES_PER_ROOM; ++i) {
+			ITU_EntityId enemy_id = create_enemy(position);
+			entity_set_active(enemy_id, false);
+	
+			PhysicsData* pd = entity_get_data(enemy_id, PhysicsData);
+			b2Body_Disable(pd->body_id);
+		}
 		
 		for(int i = 0; i < tilemap_count; ++i) {
 			if(room_spawn_locations[i].empty()) continue;

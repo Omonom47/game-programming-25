@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(gp25_exercises)
+project(gp25_exam_project)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 

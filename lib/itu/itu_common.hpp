@@ -208,7 +208,7 @@ inline float distance_sq(vec2f a, vec2f b)
 
 inline float length(vec2f a)
 {
-	return SDL_sqrt(a.x*a.x + a.y*a.y);
+	return SDL_sqrtf(a.x*a.x + a.y*a.y);
 }
 
 inline float length_sq(vec2f a)

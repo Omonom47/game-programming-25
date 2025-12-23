@@ -31,7 +31,7 @@ static TTF_TextEngine *ttf_engine;
 static const int tilemap_count = 5;
 static ITU_EntityId tilemaps[tilemap_count];
 static bool is_tilemaps_filled = false;
-
+ 
 const int tile_mapping[] = {
 	TILE_ID_WALL, // wall
 	TILE_ID_FLOOR, // floor
@@ -233,6 +233,8 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	itu_entity_set_debug_name(id,"bullet");
 	#endif
 
+	position += data.direction * 0.25f;
+
 	Transform transform = TRANSFORM_DEFAULT;
 	transform.position = position;
 	// Calculate bullet rotation
@@ -250,11 +252,13 @@ ITU_EntityId create_bullet(vec2f position, BulletData data)
 	body_def.userData = value_cast(void *, id);
 	body_def.isBullet = true;
 	body_def.rotation = b2MakeRot(transform.rotation);
-	body_def.isEnabled = false;
+	body_def.isEnabled = true;
 	body_def.fixedRotation = true;
 	
 	pd.body_id = itu_sys_physics_add_body(value_cast(void*, id), &body_def);
 	b2Body_SetUserData(pd.body_id,value_cast(void*, id));
+
+	pd.velocity = data.direction * data.speed;
 	
 	ShapeData shape_data;
 	b2ShapeDef shape_def = b2DefaultShapeDef();
@@ -579,8 +583,8 @@ void system_bullet_collision_events(SDLContext *context, ITU_EntityId *entity_id
 			float random_volume = 0.2f + (random_up_to(30, context->prng) / 100.0f);
 			sys_audio_play_sfx_gain(bullet_sfx, random_volume);
 
-			entity_set_active(id, false);
 			PhysicsData *phys = entity_get_data(id, PhysicsData);
+			entity_set_active(id, false);
 			b2Body_Disable(phys->body_id);
 		}
 	}
@@ -616,8 +620,8 @@ void system_enemy_collision_events(SDLContext *context, ITU_EntityId *entity_ids
 
 				if (enemy_health->curr <= 0.0f)
 				{
-					entity_set_active(id, false);
 					PhysicsData *enemy_phys = entity_get_data(id, PhysicsData);
+					entity_set_active(id, false);
 					b2Body_Disable(enemy_phys->body_id);
 				}
 			}

@@ -1228,7 +1228,7 @@ static void game_reset(SDLContext *context)
 	context->btn_isdown[BTN_TYPE_RIGHT] = false;
 
 	// TMP get textures pointers
-	SDL_Texture *texture_tiles = itu_sys_rstorage_texture_get_ptr(0);
+	SDL_Texture *texture_atlas = itu_sys_rstorage_texture_get_ptr(0);
 	SDL_Texture *texture_healthbar = itu_sys_rstorage_texture_get_ptr(1);
 	TTF_Font *font_bold = itu_sys_rstorage_font_get_ptr(0);
 	
@@ -1261,7 +1261,7 @@ static void game_reset(SDLContext *context)
 			#ifdef DEBUG
 			itu_entity_set_debug_name(id_tilemap, "tilemap");
 			#endif
-			rooms[i].texture = texture_tiles;
+			rooms[i].texture = texture_atlas;
 			rooms[i].tile_size = 16;
 			rooms[i].pivot = {0.5f, 0.5f};
 
@@ -1370,7 +1370,7 @@ static void game_reset(SDLContext *context)
 		transform.position = context->player_start_position;
 
 		Sprite sprite;
-		itu_lib_sprite_init(&sprite, texture_tiles, itu_lib_sprite_get_rect(SPRITE_PLAYER_X, SPRITE_PLAYER_Y, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
+		itu_lib_sprite_init(&sprite, texture_atlas, itu_lib_sprite_get_rect(SPRITE_PLAYER_X, SPRITE_PLAYER_Y, TEXTURE_PIXELS_PER_UNIT, TEXTURE_PIXELS_PER_UNIT));
 
 		PlayerData data = {0};
 		data.rotation = vec2f{0.0f, 1.0f};
@@ -1419,27 +1419,28 @@ static void game_reset(SDLContext *context)
 		}
 	}
 
-	// Bullets
-	BulletData bullet_data = {0};
 	vec2f position = {-1000, -1000};
+	// Bullets
+	{
+		BulletData bullet_data = {0};
 
-	for(int i = 0; i < MIN_NUM_BULLETS; ++i) {
-		ITU_EntityId bullet_id = create_bullet(position, bullet_data);
-		entity_set_active(bullet_id, false);
+		for(int i = 0; i < MIN_NUM_BULLETS; ++i) {
+			ITU_EntityId bullet_id = create_bullet(position, bullet_data);
+			entity_set_active(bullet_id, false);
+		}
+
+		
 	}
-
-	SDL_Texture *texture = itu_sys_rstorage_texture_get_ptr(0);
-	for(int i = 0; i < NUM_ROOMS * MAX_ENEMIES_PER_ROOM; ++i) {
-		ITU_EntityId enemy_id = create_enemy(context, position, texture);
-		entity_set_active(enemy_id, false);
-
-		PhysicsData* pd = entity_get_data(enemy_id, PhysicsData);
-		b2Body_Disable(pd->body_id);
-	}
-
+	
 	// Enemies
 	{
-		SDL_Texture* texture = itu_sys_rstorage_texture_get_ptr(0);
+		for(int i = 0; i < NUM_ROOMS * MAX_ENEMIES_PER_ROOM; ++i) {
+			ITU_EntityId enemy_id = create_enemy(context, position, texture_atlas);
+			entity_set_active(enemy_id, false);
+	
+			PhysicsData* pd = entity_get_data(enemy_id, PhysicsData);
+			b2Body_Disable(pd->body_id);
+		}
 		
 		for(int i = 0; i < tilemap_count; ++i) {
 			if(room_spawn_locations[i].empty()) continue;
@@ -1450,7 +1451,7 @@ static void game_reset(SDLContext *context)
 
 				const float min_spawn_distance_sq = 8.0f * 8.0f;
 				if(distance_sq(context->player_start_position, candidate_position) > min_spawn_distance_sq) {
-					create_enemy(context, candidate_position, texture);
+					create_enemy(context, candidate_position, texture_atlas);
 				}
 			}
 		}

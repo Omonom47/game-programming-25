@@ -4,6 +4,7 @@
 #define ENABLE_DIAGNOSTICS
 
 #define DEBUG // comment out to disable debug information
+#define BENCHMARK 
 
 // rendering framerate
 #define TARGET_FRAMERATE_NS     (SECONDS(1) / 60)
@@ -39,7 +40,7 @@
 #define MAP_MAX_WIDTH 10
 #define MAP_MAX_HEIGHT 10
 
-#define MAX_ENEMIES_PER_ROOM 40
+#define MAX_ENEMIES_PER_ROOM 7
 #define MIN_NUM_BULLETS 15
 
 // audio

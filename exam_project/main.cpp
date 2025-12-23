@@ -1644,6 +1644,7 @@ void gameplay_loop(SDLContext *context, GameState *current_state, float *round_t
 	}
 }
 
+
 int main(void)
 {
 	bool quit = false;
@@ -1674,7 +1675,7 @@ int main(void)
 	}
 
 	itu_lib_imgui_setup(context.window, &context, true);
-
+	
 	context.camera_default.normalized_screen_size.x = 1.0f;
 	context.camera_default.normalized_screen_size.y = 1.0f;
 	context.camera_default.normalized_screen_offset.x = 0.0f;
@@ -1685,6 +1686,10 @@ int main(void)
 	
 
 	game_init(&context);
+
+	#ifdef BENCHMARK
+	benchmark_map_generation(&context);
+	#endif
 
 	SDL_Time walltime_frame_beg;
 	SDL_Time walltime_frame_end;

@@ -24,6 +24,13 @@
 #include <set>
 #include <queue>
 
+//Benchmarking includes
+#include <chrono>
+#include <fstream>
+#include <vector>
+#include <numeric>
+#include <iostream>
+#include <cmath>
 
 #include <SDL3/SDL.h>
 #include <SDL3_mixer/SDL_mixer.h>
@@ -61,6 +68,7 @@
 #include <utilities/weapon_utils.hpp>
 #include <utilities/components.hpp>
 #include <utilities/map_generator.cpp>
+#include <utilities/benchmark.cpp>
 
 
 

@@ -1204,11 +1204,11 @@ static void game_init(SDLContext *context)
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
 	//TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
-	#endif
-
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "enemy");
 	itu_sys_estorage_tag_set_debug_name(TAG_GOAL, "Goal");
+	#endif
+
 
 	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0, false);
 	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);

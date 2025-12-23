@@ -1,4 +1,5 @@
 #ifndef ITU_UNITY_BUILD
+#include <config.hpp>
 #include <itu_common.hpp>
 #include <components.hpp>
 #endif
@@ -415,8 +416,8 @@ void create_path_between_rooms(Map map, Tilemap* tilemaps, Point room_a, Point r
 Map generate_map(Tilemap* tilemaps, int width, int height, int num_rooms, PRNG* engine) {
     Map map_layout = generate_layout(width, height, num_rooms, engine);
 
-    const int rows = 30; 
-    const int cols = 30;
+    const int rows = ROOM_NUM_TILES_Y; 
+    const int cols = ROOM_NUM_TILES_X;
     size_t size = rows * cols;
 
     map_layout.room_cols = cols;

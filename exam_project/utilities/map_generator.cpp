@@ -225,7 +225,7 @@ void enclose_room(int* grid, int rows, int cols) {
 void keep_largest_open_area(int* grid, int rows, int cols) {
     std::vector<bool> visited(rows * cols, false);
     std::vector<Point> largest_area;
-    int largest_area_size = 0;
+    size_t largest_area_size = 0;
 
     std::vector<Point> directions = {
         {0, 1},  // Up

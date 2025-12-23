@@ -23,8 +23,8 @@ inline void itu_lib_imgui_setup(SDL_Window* window, SDLContext* context, bool in
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 
-	io.FontDefault = io.Fonts->AddFontFromFileTTF("data/Roboto-Medium.ttf", 16);
-	//io.FontDefault = io.Fonts->AddFontFromFileTTF("data\\MSGOTHIC.TTC");
+	io.FontDefault = io.Fonts->AddFontFromFileTTF("../data/Roboto-Medium.ttf", 16);
+	
 	if(intercept_keyboard)
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 

@@ -635,14 +635,13 @@ void render_background_void(SDLContext *context)
 	sdl_set_texture_tint(texture, color{1.0f, 1.0f, 1.0f, 1.0f});
 
 	int wall_tile_id = tile_mapping[0];
-	int tile_size = PIXELS_PER_METER;
 
 	int tile_coord_x = wall_tile_id % TILESET_NUM_COLS;
 	int tile_coord_y = wall_tile_id / TILESET_NUM_COLS;
 
 	SDL_FRect rect_src;
-	rect_src.w = tile_size;
-	rect_src.h = tile_size;
+	rect_src.w = PIXELS_PER_METER;
+	rect_src.h = PIXELS_PER_METER;
 	rect_src.x = tile_coord_x * rect_src.w;
 	rect_src.y = tile_coord_y * rect_src.h;
 
@@ -1095,7 +1094,7 @@ void system_player_shooting(SDLContext *context, ITU_EntityId *entity_ids, int e
 
 		int bullet_amount = shooter->weapon.bullets_per_shot;
 
-		vec2f dirs[bullet_amount];
+		vec2f dirs[7];
 
 		set_bullet_dirs(shooter->weapon.pattern, bullet_amount, direction, dirs);
 
@@ -1142,9 +1141,9 @@ void system_bullet_update(SDLContext *context, ITU_EntityId *entity_ids, int ent
 static void game_init(SDLContext *context)
 {
 
-	itu_sys_rstorage_texture_load(context, "data/kenney/tiny_dungeon_packed.png", SDL_SCALEMODE_NEAREST);
-	itu_sys_rstorage_texture_load(context, "data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
-	itu_sys_rstorage_font_load(context, "data/ARIALBD.TTF", 42);
+	itu_sys_rstorage_texture_load(context, "../data/kenney/tiny_dungeon_packed.png", SDL_SCALEMODE_NEAREST);
+	itu_sys_rstorage_texture_load(context, "../data/kenney/UI/bar_round_gloss_small_red.png", SDL_SCALEMODE_LINEAR);
+	itu_sys_rstorage_font_load(context, "../data/ARIALBD.TTF", 42);
 
 	sys_audio_init(MAX_AUDIO_CHANNELS);
 	sys_audio_set_gain_music(BACKGROUND_MUSIC_VOLUME); // Set volume
@@ -1393,8 +1392,8 @@ static void game_reset(SDLContext *context)
 		shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
 		int start_hp = 10;
-		int grade_period = 1.0f;
-		Health player_health = { start_hp, start_hp, 1, grade_period}; //max, current, elapsed, grace_period
+		float grace_period = 1.0f;
+		Health player_health = { start_hp, start_hp, 1, grace_period}; //max, current, elapsed, grace_period
 		
 		ShooterData shooter;
 		shooter.weapon = generate_weapon(context->prng);

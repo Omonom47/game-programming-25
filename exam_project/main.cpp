@@ -280,13 +280,15 @@ ITU_EntityId get_bullet(vec2f position, BulletData data)
 
 			b2Rot rot = b2MakeRot(transform->rotation);
 			b2Body_SetTransform(physics_data->body_id, value_cast(b2Vec2, position), rot);
+
+			vec2f velocity = data.direction * data.speed;
+			physics_data->velocity = velocity;
+			b2Body_SetLinearVelocity(physics_data->body_id, value_cast(b2Vec2, velocity));
+            b2Body_SetAngularVelocity(physics_data->body_id, 0.0f);
+
             b2Body_Enable(physics_data->body_id);
             b2Body_SetAwake(physics_data->body_id, true);
 			
-			vec2f velocity = data.direction * data.speed;
-			physics_data->velocity;
-			b2Body_SetLinearVelocity(physics_data->body_id, value_cast(b2Vec2, velocity));
-            b2Body_SetAngularVelocity(physics_data->body_id, 0.0f);
 			*bullet_data = data;
 
 			entity_set_active(id, true);
@@ -1209,24 +1211,25 @@ static void game_init(SDLContext *context)
 	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "enemy");
 	itu_sys_estorage_tag_set_debug_name(TAG_GOAL, "Goal");
 
-	add_system(system_tilemap_render, component_mask(Transform) | component_mask(Tilemap), 0, true);
-	add_system(system_player_update, component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData), 0, false);
-	add_system(system_camera_target, component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
-
-	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform), 0, false);
-	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0, false);
-	add_system(itu_system_sprite_render, component_mask(Transform) | component_mask(Sprite), 0, true);
-
 	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0, false);
 	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);
 	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0, false);
 
+	add_system(system_tilemap_render, component_mask(Transform) | component_mask(Tilemap), 0, true);
+	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform), 0, false);
+
+	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0, false);
 	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
+	add_system(system_player_update, component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData), 0, false);
+	add_system(system_camera_target, component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
 	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0, false);
 	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0, false);
-	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
 	add_system(system_maintain_enemy_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
 	add_system(system_health_update, component_mask(Health) | component_mask(Sprite), 0, false);
+
+	add_system(itu_system_sprite_render, component_mask(Transform) | component_mask(Sprite), 0, true);
+	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
+
 }
 
 static void game_reset(SDLContext *context)
@@ -1438,7 +1441,7 @@ static void game_reset(SDLContext *context)
 		}
 	}
 
-	vec2f position = {-1000, -1000};
+	vec2f position = vec2f{-1000, -1000};
 	// Bullets
 	{
 		BulletData bullet_data = {0};
@@ -1446,9 +1449,9 @@ static void game_reset(SDLContext *context)
 		for(int i = 0; i < MIN_NUM_BULLETS; ++i) {
 			ITU_EntityId bullet_id = create_bullet(position, bullet_data);
 			entity_set_active(bullet_id, false);
-		}
-
-		
+			PhysicsData* pd = entity_get_data(bullet_id, PhysicsData);
+			b2Body_Disable(pd->body_id);
+		}	
 	}
 	
 	// Enemies

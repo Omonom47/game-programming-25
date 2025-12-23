@@ -37,7 +37,7 @@
 #define ROOM_NUM_TILES_Y 30
 #define NUM_ROOMS 5
 #define MAX_ENEMIES_PER_ROOM 7
-#define MIN_NUM_BULLETS 30
+#define MIN_NUM_BULLETS 15
 
 // audio
 #define MAX_AUDIO_CHANNELS 8

@@ -36,7 +36,10 @@
 #define ROOM_NUM_TILES_X 30
 #define ROOM_NUM_TILES_Y 30
 #define NUM_ROOMS 5
-#define MAX_ENEMIES_PER_ROOM 7
+#define MAP_MAX_WIDTH 10
+#define MAP_MAX_HEIGHT 10
+
+#define MAX_ENEMIES_PER_ROOM 40
 #define MIN_NUM_BULLETS 30
 
 // audio

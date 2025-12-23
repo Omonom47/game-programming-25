@@ -28,8 +28,7 @@ static ITU_EntityId id_player;
 
 static TTF_TextEngine *ttf_engine;
 
-static const int tilemap_count = 5;
-static ITU_EntityId tilemaps[tilemap_count];
+static ITU_EntityId tilemaps[NUM_ROOMS];
 static bool is_tilemaps_filled = false;
  
 const int tile_mapping[] = {
@@ -121,7 +120,7 @@ void create_goal(SDLContext *context, vec2f position)
 }
 
 static std::vector<vec2f> valid_spawn_locations;
-static std::vector<vec2f> room_spawn_locations[tilemap_count];
+static std::vector<vec2f> room_spawn_locations[NUM_ROOMS];
 
 static std::vector<ITU_EntityId> enemy_pool;
 ITU_EntityId create_enemy(vec2f position)
@@ -156,7 +155,7 @@ ITU_EntityId create_enemy(vec2f position)
 	shape_data.shape_id = b2CreateCircleShape(physics_data.body_id, &shape_def, &circle);
 
     EnemyData ed = { 0 };
-    ed.curr_speed_linear = 5;
+    ed.curr_speed_linear = 4.8f;
 	int max_health = 100;
     Health enemy_health = { max_health, max_health , 1.0f, 0.0f };
 
@@ -302,7 +301,7 @@ ITU_EntityId get_bullet(vec2f position, BulletData data)
 int get_room_index_from_position(vec2f position)
 {
 	const float HALF_ROOM_WIDTH = ROOM_NUM_TILES_X / 2.0f;
-	for (int i = 0; i < tilemap_count; ++i)
+	for (int i = 0; i < NUM_ROOMS; ++i)
 	{
 		if (!itu_entity_is_valid(tilemaps[i]))
 			continue;
@@ -329,8 +328,8 @@ void system_maintain_enemy_population(SDLContext *context, ITU_EntityId *entity_
 	const float min_spawn_distance_sq = SPAWN_DISTANCE_FROM_PLAYER_SQ;
 
 	// Count active enemies in each room
-	static std::vector<int> enemies_in_room(tilemap_count);
-	enemies_in_room.assign(tilemap_count, 0);
+	static std::vector<int> enemies_in_room(NUM_ROOMS);
+	enemies_in_room.assign(NUM_ROOMS, 0);
 
 	for (int i = 0; i < entity_ids_count; ++i)
 	{
@@ -352,7 +351,7 @@ void system_maintain_enemy_population(SDLContext *context, ITU_EntityId *entity_
 
 	SDL_Texture *texture_enemy = itu_sys_rstorage_texture_get_ptr(0);
 
-	for (int i = 0; i < tilemap_count; ++i)
+	for (int i = 0; i < NUM_ROOMS; ++i)
 	{
 		if (enemies_in_room[i] < enemies_per_room && !room_spawn_locations[i].empty())
 		{
@@ -454,7 +453,7 @@ void free_map()
 	if (!is_tilemaps_filled)
 		return;
 
-	for (int i = 0; i < tilemap_count; i++)
+	for (int i = 0; i < NUM_ROOMS; i++)
 	{
 		Tilemap *tilemap = entity_get_data(tilemaps[i], Tilemap);
 		free(tilemap->tile_ids);
@@ -1266,10 +1265,10 @@ static void game_reset(SDLContext *context)
 		// Clear previous valid spawn locations
 		valid_spawn_locations.clear();
 		valid_spawn_locations.shrink_to_fit();
-		Tilemap rooms[tilemap_count];
-		Map map = generate_map(rooms, 4, 4, tilemap_count, context->prng);
+		Tilemap rooms[NUM_ROOMS];
+		Map map = generate_map(rooms, MAP_MAX_WIDTH, MAP_MAX_HEIGHT, NUM_ROOMS, context->prng);
 
-		for (int i = 0; i < tilemap_count; ++i)
+		for (int i = 0; i < NUM_ROOMS; ++i)
 		{
 			room_spawn_locations[i].clear();
 			room_spawn_locations[i].shrink_to_fit();
@@ -1295,7 +1294,7 @@ static void game_reset(SDLContext *context)
 		int cols = map.room_cols;
 		int rows = map.room_rows;
 
-		for (int i = 0; i < tilemap_count; i++)
+		for (int i = 0; i < NUM_ROOMS; i++)
 		{
 			// player vs tile collision detection
 			for (int r = 0; r < rows; ++r)
@@ -1461,7 +1460,7 @@ static void game_reset(SDLContext *context)
 			b2Body_Disable(pd->body_id);
 		}
 		
-		for(int i = 0; i < tilemap_count; ++i) {
+		for(int i = 0; i < NUM_ROOMS; ++i) {
 			if(room_spawn_locations[i].empty()) continue;
 
 			for(int count = 0; count < MAX_ENEMIES_PER_ROOM; ++count){

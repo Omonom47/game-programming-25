@@ -412,6 +412,52 @@ void create_path_between_rooms(Map map, Tilemap* tilemaps, Point room_a, Point r
     }
 }
 
+void generate_floor_patches(int* grid, int rows, int cols, PRNG* engine) {
+    // Apply alternative floor 
+    for (int i = 0; i < rows * cols; i++) {
+        if (grid[i] == EMPTY) { // Only affect empty floors
+            if (random_up_to(100, engine) < 35) {
+                grid[i] = ALTERNATE_FLOOR;
+            }
+        }
+    }
+
+    // Smooth the floors using cellular automata
+    int iterations = 3;
+    for (int k = 0; k < iterations; k++) {
+        std::vector<int> update_grid(rows * cols);
+        // Copy current state
+        for(int i=0; i<rows*cols; ++i) update_grid[i] = grid[i];
+
+        for (int i = 1; i < rows - 1; i++) {
+            for (int j = 1; j < cols - 1; j++) {
+                int idx = i * cols + j;
+                
+                // Skip if it's a wall
+                if (grid[idx] == WALL) {
+                    update_grid[idx] = WALL;
+                    continue;
+                }
+
+                // Count neighbors that are ALTERNATE_FLOOR
+                int count = 0;
+                for (int y = -1; y <= 1; y++) {
+                    for (int x = -1; x <= 1; x++) {
+                        if (x == 0 && y == 0) continue;
+                        if (grid[(i + y) * cols + (j + x)] == ALTERNATE_FLOOR) count++;
+                    }
+                }
+
+                // Rules: 5+ neighbors that are alternative = alternative, if 0-1 neighbours = empty.
+                if (count >= 5) update_grid[idx] = ALTERNATE_FLOOR;
+                else if (count <= 1) update_grid[idx] = EMPTY;
+            }
+        }
+        // Apply 
+        for(int i=0; i<rows*cols; ++i) grid[i] = update_grid[i];
+    }
+}
+
 
 Map generate_map(Tilemap* tilemaps, int width, int height, int num_rooms, PRNG* engine) {
     Map map_layout = generate_layout(width, height, num_rooms, engine);
@@ -454,27 +500,12 @@ Map generate_map(Tilemap* tilemaps, int width, int height, int num_rooms, PRNG* 
         if (get_room_index(map_layout, up_neighbor) != -1) {
             create_path_between_rooms(map_layout, tilemaps, current_room, up_neighbor);
         }
-
-        for (int r = 0; r < rows; r++)
-        {
-            for (int c = 0; c < cols; c++)
-            {
-                int idx = r * cols + c;
-                if (tilemaps[i].tile_ids[idx] == WALL)
-                    continue;
-
-                if (random_up_to(100,engine) < 16)
-                {
-                    tilemaps[i].tile_ids[idx] = ALTERNATE_FLOOR;
-                }
-                
-            }
-            
-        }
-        
     }
 
-
+    // Post-process to polish map
+    for (int i = 0; i < num_rooms; i++) {
+        generate_floor_patches(tilemaps[i].tile_ids, rows, cols, engine);
+    }
     return map_layout;
 
 }

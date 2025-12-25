@@ -47,7 +47,7 @@
 #define MAX_AUDIO_CHANNELS 8
 #define BACKGROUND_MUSIC_VOLUME 0.8f
 
-// Tile IDs (
+// Tile IDs 
 #define TILE_ID_WALL 40
 #define TILE_ID_FLOOR 48
 #define TILE_ID_FLOOR_ALT 42

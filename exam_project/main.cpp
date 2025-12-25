@@ -34,7 +34,7 @@ static bool is_tilemaps_filled = false;
 const int tile_mapping[] = {
 	TILE_ID_WALL, // wall
 	TILE_ID_FLOOR, // floor
-	TILE_ID_FLOOR_ALT, // Alternate floor
+	TILE_ID_FLOOR_ALT // alternate floor
 };
 
 const float PIXELS_PER_METER = (float)TEXTURE_PIXELS_PER_UNIT;
@@ -490,8 +490,9 @@ std::tuple<vec2f, vec2f> tile_coordinate_to_world_position(Tilemap* tilemap, Tra
 
 bool is_solid_tile(int tile_id)
 {
-	return tile_id == 0;
-}
+	if (tile_id == 1 || tile_id == 2) return false;
+	return true;
+}	
 
 // ============================================================================================
 // Enemy AI methods
@@ -1675,7 +1676,7 @@ int main(void)
 	}
 
 	itu_lib_imgui_setup(context.window, &context, true);
-	
+
 	context.camera_default.normalized_screen_size.x = 1.0f;
 	context.camera_default.normalized_screen_size.y = 1.0f;
 	context.camera_default.normalized_screen_offset.x = 0.0f;

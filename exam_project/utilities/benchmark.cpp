@@ -5,11 +5,21 @@
 void benchmark_map_generation(SDLContext* context) 
 {
 	std::vector<int> room_sizes = {30, 50, 100, 200};
-	std::vector<int> room_num = {5, 10, 15, 20};
+	std::vector<int> room_num = {5, 20, 50, 100};
 	const int iterations = 10;
-	
-	std::ofstream csv_raw("map_benchmark_raw.csv");
-	std::ofstream csv_summary("map_generation_benchmark.csv");
+
+    std::string output_dir = "../exam_project/results/";
+    try {
+        if (!std::filesystem::exists(output_dir)) {
+            std::filesystem::create_directories(output_dir);
+            printf("Created directory: %s\n", output_dir.c_str());
+        }
+    } catch (const std::filesystem::filesystem_error& e) {
+        printf("Warning: Could not verify directory %s. Error: %s\n", output_dir.c_str(), e.what());
+    }
+
+	std::ofstream csv_raw(output_dir + "map_benchmark_raw.csv");
+	std::ofstream csv_summary(output_dir + "map_generation_benchmark.csv");
 	if (!csv_raw.is_open() || !csv_summary.is_open()) {
 		printf("Error: Could not open CSV file for writing.\n");
 		return;

@@ -20,7 +20,7 @@
 #define SYSTEMS_COUNT_MAX     64
 #define SYSTEM_COMPONENTS_MAX  8
 #define SYSTEM_TAGS_MAX        8
-#define ENTITIES_COUNT_MAX 4096 * 4
+#define ENTITIES_COUNT_MAX 8096 * 4
 
 #define ITU_ENTITY_ID_NULL { (Uint32)-1, (Uint32)-1 }
 

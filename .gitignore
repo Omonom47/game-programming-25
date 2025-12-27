@@ -4,6 +4,8 @@ build
 .vscode
 .idea
 
+/exam_project/results
+
 CMakeSettings.json
 imgui.ini
 build.sh

@@ -107,7 +107,7 @@ void create_goal(SDLContext *context, vec2f position)
 	shape_def.enableContactEvents = true;
 	shape_def.filter.categoryBits = GOAL;
 	shape_def.filter.maskBits = PLAYER;
-	b2Polygon box = b2MakeBox(0.4f, 0.4f); // TODO: change size?
+	b2Polygon box = b2MakeBox(0.4f, 0.4f);
 
 	ShapeData shape_data;
 	shape_data.shape_id = b2CreatePolygonShape(physics_data.body_id, &shape_def, &box);
@@ -1204,7 +1204,7 @@ static void game_init(SDLContext *context)
 	#ifdef DEBUG
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
-	//TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
+	
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "enemy");
 	itu_sys_estorage_tag_set_debug_name(TAG_GOAL, "Goal");
@@ -1219,9 +1219,9 @@ static void game_init(SDLContext *context)
 	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform), 0);
 
 	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0);
-	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
+	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY));
 	add_system(system_player_update, component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData), 0);
-	add_system(system_camera_target, component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
+	add_system(system_camera_target, component_mask(Transform), tag_mask(TAG_CAMERA_TARGET));
 	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0);
 	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0);
 	add_system(system_maintain_enemy_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY));

@@ -197,8 +197,6 @@ void generate_map_cellular_automata(int* grid, int iterations, int wall_threshol
     {
         update_grid(grid, wall_threshold,rows,cols);
     }
-
-    // TODO: post processing of the generated grid
     
 }
 
@@ -470,7 +468,7 @@ Map generate_map(Tilemap* tilemaps, int width, int height, int num_rooms, PRNG* 
         tilemap.tile_ids = new int[size];
         generate_map_cellular_automata(tilemap.tile_ids, 12, 40, rows, cols, engine);
         enclose_room(tilemap.tile_ids, rows, cols);
-        //keep_largest_open_area(tilemap.tile_ids, rows, cols);
+        keep_largest_open_area(tilemap.tile_ids, rows, cols);
         
         tilemaps[i] = tilemap;
     }

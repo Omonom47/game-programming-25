@@ -4,7 +4,7 @@
 #define ENABLE_DIAGNOSTICS
 
 #define DEBUG // comment out to disable debug information
-#define BENCHMARK 
+//#define BENCHMARK 
 
 // rendering framerate
 #define TARGET_FRAMERATE_NS     (SECONDS(1) / 60)
@@ -15,8 +15,8 @@
 #define PHYSICS_MAX_TIMESTEPS_PER_FRAME 4
 #define PHYSICS_MAX_CONTACTS_PER_ENTITY 16
 
-#define WINDOW_W         1024
-#define WINDOW_H         576
+#define WINDOW_W         1920
+#define WINDOW_H         1080
 
 // ui colors
 #define EX6_COLOR_BTN_DEFAULT color { 0.5f, 0.5f, 0.5f, 1.0f }
@@ -36,7 +36,7 @@
 // room information
 #define ROOM_NUM_TILES_X 30
 #define ROOM_NUM_TILES_Y 30
-#define NUM_ROOMS 5
+#define NUM_ROOMS 50
 #define MAP_MAX_WIDTH 10
 #define MAP_MAX_HEIGHT 10
 

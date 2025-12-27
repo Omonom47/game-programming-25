@@ -1662,7 +1662,7 @@ int main(void)
 	TTF_Init();
 
 	context.working_dir = SDL_GetCurrentDirectory();
-	SDL_CreateWindowAndRenderer("Not Binding of Isaac", WINDOW_W, WINDOW_H, 0, &context.window, &context.renderer);
+	SDL_CreateWindowAndRenderer("Escape the Dungeon Generator!", WINDOW_W, WINDOW_H, 0, &context.window, &context.renderer);
 	SDL_SetRenderDrawBlendMode(context.renderer, SDL_BLENDMODE_BLEND);
 	SDL_SetRenderVSync(context.renderer, SDL_RENDERER_VSYNC_ADAPTIVE);
 

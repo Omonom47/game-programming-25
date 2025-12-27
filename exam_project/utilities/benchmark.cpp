@@ -1,5 +1,6 @@
 #ifndef ITU_UNITY_BUILD
 #include <itu_common.hpp>
+#include <itu_lib_engine.hpp>
 #endif
 
 void benchmark_map_generation(SDLContext* context) 

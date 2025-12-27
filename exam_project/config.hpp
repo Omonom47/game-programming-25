@@ -4,7 +4,7 @@
 #define ENABLE_DIAGNOSTICS
 
 #define DEBUG // comment out to disable debug information
-#define BENCHMARK 
+//#define BENCHMARK 
 
 // rendering framerate
 #define TARGET_FRAMERATE_NS     (SECONDS(1) / 60)

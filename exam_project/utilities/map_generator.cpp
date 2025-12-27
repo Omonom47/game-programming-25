@@ -66,15 +66,6 @@ Direction choose_new_direction(Direction current_direction, PRNG* engine){
     return new_direction;
 }
 
-std::vector<Direction> has_neighbor_directions(Map map, int x, int y) {
-    std::vector<Direction> directions;
-    if (room_exists_at(map, x, y + 1)) directions.push_back(DIR_UP);
-    if (room_exists_at(map, x, y - 1)) directions.push_back(DIR_DOWN);
-    if (room_exists_at(map, x - 1, y)) directions.push_back(DIR_LEFT);
-    if (room_exists_at(map, x + 1, y)) directions.push_back(DIR_RIGHT);
-    return directions;
-}
-
 Map generate_layout(int width, int height, int num_rooms, PRNG* engine){
     uint32_t x = random_up_to(width, engine);
     uint32_t y = random_up_to(height, engine);
@@ -147,7 +138,7 @@ int live_neighbors(int* grid, int x, int y, int rows, int cols){
                 count++; 
             } // Otherwise check if neighbor is wall
             else if (grid[neighbor_y * cols + neighbor_x] == WALL) {
-            count++;
+                count++;
             }
         }
     }
@@ -158,7 +149,7 @@ void update_grid(int* grid, int wall_threshold,int rows,int cols){
 
     std::vector<int> updated(rows*cols); // Changed due to compiler complaining
 
-    const int SURVIVAL_THRESHOLD = 4; // Wall stays wall if it has 4 more wall neighbors
+    const int SURVIVAL_THRESHOLD = 4; // Wall stays wall if it has 4 or more wall neighbors
     const int BIRTH_THRESHOLD = 5; // Empty becomes wall if it has 5 or more wall neighbors
 
 
@@ -380,7 +371,7 @@ void create_path_between_rooms(Map map, Tilemap* tilemaps, Point room_a, Point r
     
     int padding = 1; // Carve a wider path
     // Skip corners when scanning
-    for (int i = padding; i < wall_length - padding; ++i) {
+    for (int i = 1+padding; i < wall_length -(1 + padding); ++i) {
         Point point_a = is_horizontal ? Point{ wall_x, i } : Point{ i, wall_x };
         Point point_b = is_horizontal ? Point{ wall_y, i } : Point{ i, wall_y };
 

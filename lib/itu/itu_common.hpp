@@ -5,7 +5,6 @@
 #include <SDL3/SDL_log.h>    // SDL_Log()
 #include <SDL3/SDL_error.h>  // SDL_Error()
 #include <SDL3/SDL_stdinc.h> // SDL_assert(), all math functions and macros
-#include <bits/stdc++.h>
 #include <ctime>
 #include <random>
 #endif

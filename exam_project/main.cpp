@@ -1211,24 +1211,24 @@ static void game_init(SDLContext *context)
 	#endif
 
 
-	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0, false);
-	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);
-	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0, false);
+	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0);
+	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0);
+	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0);
 
-	add_system(system_tilemap_render, component_mask(Transform) | component_mask(Tilemap), 0, true);
-	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform), 0, false);
+	add_system(system_tilemap_render, component_mask(Transform) | component_mask(Tilemap), 0);
+	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform), 0);
 
-	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0, false);
+	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0);
 	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
-	add_system(system_player_update, component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData), 0, false);
+	add_system(system_player_update, component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData), 0);
 	add_system(system_camera_target, component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
-	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0, false);
-	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0, false);
-	add_system(system_maintain_enemy_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
-	add_system(system_health_update, component_mask(Health) | component_mask(Sprite), 0, false);
+	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0);
+	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0);
+	add_system(system_maintain_enemy_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY));
+	add_system(system_health_update, component_mask(Health) | component_mask(Sprite), 0);
 
-	add_system(itu_system_sprite_render, component_mask(Transform) | component_mask(Sprite), 0, true);
-	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
+	add_system(itu_system_sprite_render, component_mask(Transform) | component_mask(Sprite), 0);
+	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0);
 
 }
 

@@ -575,18 +575,6 @@ void itu_sys_estorage_systems_update(SDLContext* context)
 	}
 }
 
-void itu_sys_estorage_render_update(SDLContext* context)
-{
-	for(int i = 0; i < ctx_estorage.render_systems_count; ++i)
-	{
-		ITU_System* system = &ctx_estorage.render_systems[i];
-		ITU_EntityId system_ids[ENTITIES_COUNT_MAX];
-		int system_ids_count = itu_system_get_matching_entities(system, system_ids);
-
-		system->fn_update(context, system_ids, system_ids_count);
-	}
-}
-
 void itu_component_pool_assign(ITU_Component* component_pool, ITU_EntityId entity)
 {
 	SDL_assert(component_pool);

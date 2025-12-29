@@ -24,11 +24,11 @@ Build and run them from there, or set one to be the "default" target (`right-cli
 
 ### CLI (Prefered)
 This setup assumes you have `Cmake` and your prefered `C++` compiler of choise installed
-1. clone the repository `git clone --recurse-submodules https://github.itu.dk/biha/gp_25_exam_project.git` 
+1. clone the repository `git clone --recurse-submodules https://github.itu.dk/biha/gp_25_exam_project.git` and `cd` into the directory 
 2. create the build directory `mkdir out`
 3. configure the project `cmake . -B out`
 4. build the main executable target `cmake --build out --target main.cpp`
-5. inside the `/out` directory, you should find an executable `main.cpp.exe` (if on windows; otherwise should have a similar name)
+5. `cd` into the `/out` directory, you should find an executable `main.cpp.exe` (if on windows; otherwise should have a similar name)
 
 ## Credit
 

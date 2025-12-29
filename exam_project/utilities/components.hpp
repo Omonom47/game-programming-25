@@ -20,14 +20,11 @@ struct PlayerData
 	float curr_speed_linear;
 	float curr_speed_rotational;
 	vec2f rotation;
-
-	ITU_EntityId target;
 };
 register_component(PlayerData)
 
 struct EnemyData
 {
-	/* data */
 	float curr_speed_linear;
 };
 register_component(EnemyData)
@@ -74,15 +71,6 @@ struct Sprite9Patch
 	color        tint;
 };
 register_component(Sprite9Patch)
-
-struct ImageButton
-{
-	TTF_Text* ttf_text; // owned
-
-	void (*fn_callback_hover)(SDLContext* context, ITU_EntityId id);
-	void (*fn_callback_click)(SDLContext* context, ITU_EntityId id);
-};
-register_component(ImageButton)
 
 struct ShooterData
 {

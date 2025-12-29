@@ -41,8 +41,6 @@ void itu_sys_physics_reset(const b2WorldDef* world_def);
 void itu_sys_physics_step(float fixed_delta);
 b2BodyId itu_sys_physics_add_body(void* entity, b2BodyDef* body_def);
 void* itu_sys_physics_get_entity(b2BodyId body_id);
-b2ContactEvents itu_sys_physics_get_contact_events();
-b2SensorEvents itu_sys_physics_get_sensor_events();
 void itu_sys_physics_debug_draw();
 
 
@@ -104,19 +102,6 @@ b2BodyId itu_sys_physics_add_body(void* entity, b2BodyDef* body_def)
 void* itu_sys_physics_get_entity(b2BodyId body_id)
 {
 	return stbds_hmget(sys_physics_data.map_b2body_entity, body_id);
-}
-
-
-b2SensorEvents itu_sys_physics_get_sensor_events()
-{
-	b2SensorEvents ret = b2World_GetSensorEvents(sys_physics_data.world_id);
-	return ret;
-}
-
-b2ContactEvents itu_sys_physics_get_contact_events()
-{
-	b2ContactEvents ret = b2World_GetContactEvents(sys_physics_data.world_id);
-	return ret;
 }
 
 void itu_sys_physics_debug_draw()

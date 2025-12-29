@@ -36,9 +36,11 @@
 // room information
 #define ROOM_NUM_TILES_X 30
 #define ROOM_NUM_TILES_Y 30
-#define NUM_ROOMS 50
+#define NUM_ROOMS 5
 #define MAP_MAX_WIDTH 10
 #define MAP_MAX_HEIGHT 10
+#define CA_ITERATIONS 12
+#define INIT_WALL_PERCENT 45
 
 #define MAX_ENEMIES_PER_ROOM 7
 #define MIN_NUM_BULLETS 15

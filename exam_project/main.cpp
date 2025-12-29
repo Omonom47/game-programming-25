@@ -107,7 +107,7 @@ void create_goal(SDLContext *context, vec2f position)
 	shape_def.enableContactEvents = true;
 	shape_def.filter.categoryBits = GOAL;
 	shape_def.filter.maskBits = PLAYER;
-	b2Polygon box = b2MakeBox(0.4f, 0.4f); // TODO: change size?
+	b2Polygon box = b2MakeBox(0.4f, 0.4f);
 
 	ShapeData shape_data;
 	shape_data.shape_id = b2CreatePolygonShape(physics_data.body_id, &shape_def, &box);
@@ -869,8 +869,6 @@ void debug_ui_render_playerdata(SDLContext *context, void *data)
 
 	ImGui::DragFloat("curr. linear speed", &data_player->curr_speed_linear);
 	ImGui::DragFloat("curr. rotational speed", &data_player->curr_speed_rotational);
-
-	itu_debug_ui_widget_entityid("target", data_player->target);
 }
 
 void debug_ui_render_health(SDLContext *context, void *data)
@@ -918,40 +916,6 @@ void debug_ui_render_sprite9patch(SDLContext *context, void *data)
 
 	ImGui::ColorEdit4("tint", &data_sprite->tint.r);
 }
-
-void debug_ui_render_imagebutton(SDLContext *context, void *data)
-{
-	ImageButton *data_imagebutton = (ImageButton *)data;
-	// char* buf;
-	//
-	// TTF_SetTextString
-	// ImGui::InputTextMultiline("text", buf, 1024);
-	ImGui::LabelText("hover callback", "%p", data_imagebutton->fn_callback_hover);
-	ImGui::LabelText("click callback", "%p", data_imagebutton->fn_callback_click);
-
-	int wrap_width;
-	TTF_GetTextWrapWidth(data_imagebutton->ttf_text, &wrap_width);
-
-	int size[2];
-	TTF_GetTextSize(data_imagebutton->ttf_text, &size[0], &size[1]);
-
-	color c;
-	TTF_GetTextColorFloat(data_imagebutton->ttf_text, &c.r, &c.g, &c.b, &c.a);
-
-	TTF_Font *font = TTF_GetTextFont(data_imagebutton->ttf_text);
-	TTF_Font *new_font;
-	if (itu_sys_rstorage_debug_render_font(font, &new_font))
-		TTF_SetTextFont(data_imagebutton->ttf_text, new_font);
-
-	ImGui::InputInt2("size (readonly)", size);
-
-	if (ImGui::DragInt("wrap width", &wrap_width))
-		TTF_SetTextWrapWidth(data_imagebutton->ttf_text, wrap_width);
-
-	if (ImGui::ColorEdit4("color", &c.r))
-		TTF_SetTextColorFloat(data_imagebutton->ttf_text, c.r, c.g, c.b, c.a);
-}
-
 // ============================================================================================
 //
 // ============================================================================================
@@ -1204,31 +1168,31 @@ static void game_init(SDLContext *context)
 	#ifdef DEBUG
 	add_component_debug_ui_render(PlayerData, debug_ui_render_playerdata);
 	add_component_debug_ui_render(TransformScreen, debug_ui_render_transformscreen);
-	//TODO: add_component_debug_ui_render(Tilemap, debug_ui_render_tilemap);
+	
 	itu_sys_estorage_tag_set_debug_name(TAG_CAMERA_TARGET, "camera target");
 	itu_sys_estorage_tag_set_debug_name(TAG_ENEMY, "enemy");
 	itu_sys_estorage_tag_set_debug_name(TAG_GOAL, "Goal");
 	#endif
 
 
-	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0, false);
-	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0, false);
-	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0, false);
+	add_system(system_player_collision_events, component_mask(PlayerData) | component_mask(ShapeData), 0);
+	add_system(system_enemy_collision_events, component_mask(EnemyData) | component_mask(ShapeData), 0);
+	add_system(system_bullet_collision_events, component_mask(BulletData) | component_mask(ShapeData), 0);
 
-	add_system(system_tilemap_render, component_mask(Transform) | component_mask(Tilemap), 0, true);
-	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform), 0, false);
+	add_system(system_tilemap_render, component_mask(Transform) | component_mask(Tilemap), 0);
+	add_system(system_player_shooting, component_mask(PlayerData) | component_mask(ShooterData) | component_mask(Transform), 0);
 
-	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0, false);
-	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
-	add_system(system_player_update, component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData), 0, false);
-	add_system(system_camera_target, component_mask(Transform), tag_mask(TAG_CAMERA_TARGET), false);
-	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0, false);
-	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0, false);
-	add_system(system_maintain_enemy_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY), false);
-	add_system(system_health_update, component_mask(Health) | component_mask(Sprite), 0, false);
+	add_system(system_bullet_update, component_mask(BulletData) | component_mask(PhysicsData) | component_mask(Transform), 0);
+	add_system(system_enemy_ai, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY));
+	add_system(system_player_update, component_mask(Transform) | component_mask(PhysicsData) | component_mask(PlayerData), 0);
+	add_system(system_camera_target, component_mask(Transform), tag_mask(TAG_CAMERA_TARGET));
+	add_system(system_health, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(HealthRenderer), 0);
+	add_system(system_weapon_cooldown, component_mask(TransformScreen) | component_mask(Sprite9Patch) | component_mask(CooldownRenderer), 0);
+	add_system(system_maintain_enemy_population, component_mask(Transform) | component_mask(EnemyData), tag_mask(TAG_ENEMY));
+	add_system(system_health_update, component_mask(Health) | component_mask(Sprite), 0);
 
-	add_system(itu_system_sprite_render, component_mask(Transform) | component_mask(Sprite), 0, true);
-	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0, true);
+	add_system(itu_system_sprite_render, component_mask(Transform) | component_mask(Sprite), 0);
+	add_system(system_sprite9patch_render, component_mask(TransformScreen) | component_mask(Sprite9Patch), 0);
 
 }
 

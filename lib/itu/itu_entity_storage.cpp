@@ -74,9 +74,6 @@ struct ITU_EntityStorageContext
 	ITU_System systems[SYSTEMS_COUNT_MAX];
 	int systems_count;
 
-	ITU_System render_systems[SYSTEMS_COUNT_MAX];
-	int render_systems_count;
-
 	#ifdef DEBUG
 	// debug properties
 	stbds_hm(ITU_EntityId, char*) entities_debug_names;
@@ -479,13 +476,7 @@ void itu_sys_estorage_add_system(ITU_SystemDef system_def, bool is_render_system
 		return;
 	}
 
-	ITU_System* system_runtime;
-
-	if (!is_render_system) {
-		system_runtime = &ctx_estorage.systems[ctx_estorage.systems_count++];
-	} else {
-		system_runtime = &ctx_estorage.render_systems[ctx_estorage.render_systems_count++];
-	}
+	ITU_System* system_runtime = &ctx_estorage.systems[ctx_estorage.systems_count++];
 
 	// build component pool pointers (this requires component pools to be alredy set up)
 	for(int j = 0; j < COMPONENTS_COUNT_MAX; ++j)
@@ -568,18 +559,6 @@ void itu_sys_estorage_systems_update(SDLContext* context)
 	for(int i = 0; i < ctx_estorage.systems_count; ++i)
 	{
 		ITU_System* system = &ctx_estorage.systems[i];
-		ITU_EntityId system_ids[ENTITIES_COUNT_MAX];
-		int system_ids_count = itu_system_get_matching_entities(system, system_ids);
-
-		system->fn_update(context, system_ids, system_ids_count);
-	}
-}
-
-void itu_sys_estorage_render_update(SDLContext* context)
-{
-	for(int i = 0; i < ctx_estorage.render_systems_count; ++i)
-	{
-		ITU_System* system = &ctx_estorage.render_systems[i];
 		ITU_EntityId system_ids[ENTITIES_COUNT_MAX];
 		int system_ids_count = itu_system_get_matching_entities(system, system_ids);
 

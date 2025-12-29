@@ -411,7 +411,7 @@ void itu_sys_estorage_init(int starting_entities_count, bool enable_standard_com
 		add_component_debug_ui_render(PhysicsStaticData, itu_debug_ui_render_physicsstaticdata);
 		#endif
 
-		add_system(itu_system_physics       , component_mask(PhysicsData)                                  , 0, false);
+		add_system(itu_system_physics       , component_mask(PhysicsData)                                  , 0);
 		//add_system(itu_system_sprite_render , component_mask(Transform)   | component_mask(Sprite)         , 0);
 	}
 }

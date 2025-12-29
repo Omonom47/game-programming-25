@@ -466,7 +466,7 @@ Map generate_map(Tilemap* tilemaps, int width, int height, int num_rooms, PRNG* 
         tilemap.num_cols = cols;
         tilemap.num_rows = rows;
         tilemap.tile_ids = new int[size];
-        generate_map_cellular_automata(tilemap.tile_ids, 12, 40, rows, cols, engine);
+        generate_map_cellular_automata(tilemap.tile_ids, CA_ITERATIONS, INIT_WALL_PERCENT, rows, cols, engine);
         enclose_room(tilemap.tile_ids, rows, cols);
         keep_largest_open_area(tilemap.tile_ids, rows, cols);
         

@@ -30,3 +30,13 @@ This setup assumes you have `Cmake` and your prefered `C++` compiler of choise i
 4. build the main executable target `cmake --build out --target main.cpp`
 5. inside the `/out` directory, you should find an executable `main.cpp.exe` (if on windows; otherwise should have a similar name)
 
+## Credit
+
+The following third-party assets are used in this project:
+
+| Asset | Creator | Source |    
+| :--- | :--- | :--- |
+| **Loopable Dungeon Ambience** | JaggedStone | [OpenGameArt](https://opengameart.org/content/loopable-dungeon-ambience) |
+| **RPG Audio** | Kenney | [Kenney.nl](https://kenney.nl/assets/rpg-audio) |
+| **Tiny Dungeon** | Kenney | [Kenney.nl](https://kenney.nl/assets/tiny-dungeon) |
+

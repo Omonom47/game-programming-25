@@ -869,8 +869,6 @@ void debug_ui_render_playerdata(SDLContext *context, void *data)
 
 	ImGui::DragFloat("curr. linear speed", &data_player->curr_speed_linear);
 	ImGui::DragFloat("curr. rotational speed", &data_player->curr_speed_rotational);
-
-	itu_debug_ui_widget_entityid("target", data_player->target);
 }
 
 void debug_ui_render_health(SDLContext *context, void *data)
@@ -918,40 +916,6 @@ void debug_ui_render_sprite9patch(SDLContext *context, void *data)
 
 	ImGui::ColorEdit4("tint", &data_sprite->tint.r);
 }
-
-void debug_ui_render_imagebutton(SDLContext *context, void *data)
-{
-	ImageButton *data_imagebutton = (ImageButton *)data;
-	// char* buf;
-	//
-	// TTF_SetTextString
-	// ImGui::InputTextMultiline("text", buf, 1024);
-	ImGui::LabelText("hover callback", "%p", data_imagebutton->fn_callback_hover);
-	ImGui::LabelText("click callback", "%p", data_imagebutton->fn_callback_click);
-
-	int wrap_width;
-	TTF_GetTextWrapWidth(data_imagebutton->ttf_text, &wrap_width);
-
-	int size[2];
-	TTF_GetTextSize(data_imagebutton->ttf_text, &size[0], &size[1]);
-
-	color c;
-	TTF_GetTextColorFloat(data_imagebutton->ttf_text, &c.r, &c.g, &c.b, &c.a);
-
-	TTF_Font *font = TTF_GetTextFont(data_imagebutton->ttf_text);
-	TTF_Font *new_font;
-	if (itu_sys_rstorage_debug_render_font(font, &new_font))
-		TTF_SetTextFont(data_imagebutton->ttf_text, new_font);
-
-	ImGui::InputInt2("size (readonly)", size);
-
-	if (ImGui::DragInt("wrap width", &wrap_width))
-		TTF_SetTextWrapWidth(data_imagebutton->ttf_text, wrap_width);
-
-	if (ImGui::ColorEdit4("color", &c.r))
-		TTF_SetTextColorFloat(data_imagebutton->ttf_text, c.r, c.g, c.b, c.a);
-}
-
 // ============================================================================================
 //
 // ============================================================================================

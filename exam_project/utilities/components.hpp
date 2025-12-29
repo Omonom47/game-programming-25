@@ -20,8 +20,6 @@ struct PlayerData
 	float curr_speed_linear;
 	float curr_speed_rotational;
 	vec2f rotation;
-
-	ITU_EntityId target;
 };
 register_component(PlayerData)
 
